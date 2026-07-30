@@ -44,13 +44,13 @@
       <inertia ixx="14.721208377301" ixy="0.000729274097054354" ixz="-1.7138458385476"
                iyy="31.0730345912135" iyz="0.00228580331928839" izz="29.139821759891"/>
     </inertial>
-    <visual>
+    <!--visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <mesh filename="file://$(find asump_description)/meshes/tracks_link.STL"/>
       </geometry>
       <material name=""><color rgba="0 0 0 1"/></material>
-    </visual>
+    </visual-->
   </link>
 
   <joint name="tracks_joint" type="fixed">
