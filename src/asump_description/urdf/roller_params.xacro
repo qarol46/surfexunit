@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Макрос для создания ролика -->
+  <xacro:macro name="roller" params="name x y z axis_x axis_y axis_z">
+    <link name="${name}_roller">
+      <inertial>
+        <origin xyz="0 -0.01 0" rpy="0 0 0"/>
+        <mass value="0.65"/>
+        <inertia ixx="0.00179016454216459" ixy="1.32679515530007E-36" ixz="1.04242882131926E-50"
+                 iyy="0.00353589020904659" iyz="-3.27203986802643E-19" izz="0.00179016454216458"/>
+      </inertial>
+      <!--visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/${name}_roller.STL"/>
+        </geometry>
+        <material name=""><color rgba="0.564705882352941 0.564705882352941 0.564705882352941 0"/></material>
+      </visual-->
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/${name}_roller.STL"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_joint" type="continuous">
+      <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+      <parent link="base_link"/>
+      <child link="${name}_roller"/>
+      <axis xyz="${axis_x} ${axis_y} ${axis_z}"/>
+      <limit effort="1000" velocity="10"/>
+      <dynamics friction="0.5"/>
+    </joint>
+
+    <gazebo reference="${name}_roller">
+      <visual>
+        <cast_shadows>false</cast_shadows>
+        <transparency>1.0</transparency>
+      </visual>
+        
+      <!-- Настройки трения с поверхностью -->
+      <mu1>0.1</mu1>        <!-- Коэффициент трения в продольном направлении -->
+      <mu2>0.2</mu2>        <!-- Коэффициент трения в поперечном направлении -->
+      <kp>1e5</kp>          <!-- Коэффициент жесткости контакта -->
+      <kd>1e3</kd>          <!-- Коэффициент демпфирования контакта -->    
+
+      <collision>
+        <laser_retro>0</laser_retro>
+        <max_contacts>10</max_contacts>
+      </collision>
+    </gazebo>
+  </xacro:macro>
+</robot>

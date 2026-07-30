@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="lidar" params="parent_link x y z roll pitch yaw">
+    <link name="lidar_link">
+      <inertial>
+        <origin xyz="-0.391109515510156 1.97239805683526E-07 -0.302515275293891" rpy="0 0 0"/>
+        <mass value="0.25"/>
+        <inertia ixx="14.721208377301" ixy="0.000729274097054414" ixz="-1.7138458385476"
+                 iyy="31.0730345912135" iyz="0.00228580331928823" izz="29.139821759891"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/lidar_link.STL"/>
+        </geometry>
+        <material name=""><color rgba="0.5 0.5 0.5 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/lidar_link.STL"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="lidar_joint" type="fixed">
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <parent link="${parent_link}"/>
+      <child link="lidar_link"/>
+      <axis xyz="0 0 0"/>
+    </joint>
+
+    <link name="lidar_ray_link"/>
+
+    <joint name="lidar_ray_joint" type="fixed">
+      <origin xyz="0 0 0.02" rpy="0 0 0"/>
+      <parent link="lidar_link"/>
+      <child link="lidar_ray_link"/>
+      <axis xyz="0 0 0"/>
+    </joint>
+
+    <gazebo reference="lidar_link">
+      <material>Gazebo/Grey</material>
+    </gazebo>
+
+    <gazebo reference="lidar_ray_link">
+      <sensor name="lidar_sensor" type="gpu_lidar">
+        <pose>0 0 0 0 0 0</pose>
+        <gz_frame_id>asump0/base_footprint/lidar_sensor</gz_frame_id>
+        <visualize>false</visualize>
+        <update_rate>10</update_rate>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>1600</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.15</min>
+            <max>25.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </lidar>
+        <topic>/rplidar/scan</topic>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <link name="asump0/base_footprint/lidar_sensor"/>
+  
+  <joint name="lidar_ray_sensor_joint" type="fixed">
+    <origin xyz="0 0 0.02" rpy="0 0 0"/>
+    <parent link="lidar_ray_link"/>
+    <child link="asump0/base_footprint/lidar_sensor"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+
+
+</robot>

@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Левый датчик парктроника -->
+  <xacro:macro name="left_parking_sensor" params="parent_link x y z roll pitch yaw">
+    <link name="left_cam_link">
+      <inertial>
+        <origin xyz="-0.282877644080551 -0.361170054115844 -0.151111588616627" rpy="0 0 0"/>
+        <mass value="0.1"/>
+        <inertia ixx="31.0587465933018" ixy="0.148645008467517" ixz="-0.165598366264066"
+                 iyy="14.721208377301" iyz="1.70738769809476" izz="29.1541097578027"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/left_cam_link.STL"/>
+        </geometry>
+        <material name=""><color rgba="0.25 0.25 0.25 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/left_cam_link.STL"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="left_cam_joint" type="fixed">
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <parent link="${parent_link}"/>
+      <child link="left_cam_link"/>
+      <axis xyz="0 0 0"/>
+    </joint>
+
+    <!-- Альтернативный плагин для ультразвукового датчика -->
+    <gazebo reference="left_cam_link">
+      <material>Gazebo/Black</material>
+      
+      <sensor name="left_parking_sensor" type="ray">
+        <pose>0 0 0 0 0 0</pose>
+        <visualize>true</visualize>
+        <update_rate>20</update_rate>
+        
+        <ray>
+          <scan>
+            <!-- Для ультразвука достаточно узкого луча -->
+            <horizontal>
+              <samples>1</samples>           <!-- Один луч -->
+              <resolution>1.0</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          
+          <range>
+            <min>0.02</min>    <!-- Минимальная дистанция 2 см -->
+            <max>3.0</max>      <!-- Максимальная дистанция 3 м -->
+            <resolution>0.01</resolution>
+          </range>
+          
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>  <!-- Небольшой шум -->
+          </noise>
+        </ray>
+        
+        <!-- Используем range плагин вместо sonar -->
+        <plugin name="gazebo_ros_range" filename="libgazebo_ros_range.so">
+          <ros>
+            <namespace>/</namespace>
+            <remapping>~/out:=left_parking_sensor</remapping>
+          </ros>
+          <output_type>sensor_msgs/Range</output_type>
+          <radiation_type>ultrasound</radiation_type>  <!-- Указываем тип излучения -->
+          <frame_name>left_cam_link</frame_name>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Правый датчик (аналогично) -->
+  <xacro:macro name="right_parking_sensor" params="parent_link x y z roll pitch yaw">
+    <link name="right_cam_link">
+      <inertial>
+        <origin xyz="-0.282878037058052 0.361170054115844 -0.151111554235551" rpy="0 0 0"/>
+        <mass value="0.1"/>
+        <inertia ixx="31.0579527421377" ixy="-0.150098006445366" ixz="-0.170100519925046"
+                 iyy="14.721208377301" iyz="-1.7072605772432" izz="29.1549036089668"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/right_cam_link.STL"/>
+        </geometry>
+        <material name=""><color rgba="0.25 0.25 0.25 1"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description)/meshes/right_cam_link.STL"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="right_cam_joint" type="fixed">
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
+      <parent link="${parent_link}"/>
+      <child link="right_cam_link"/>
+      <axis xyz="0 0 0"/>
+    </joint>
+
+    <gazebo reference="right_cam_link">
+      <material>Gazebo/Black</material>
+      
+      <sensor name="right_parking_sensor" type="ray">
+        <pose>0 0 0 0 0 0</pose>
+        <visualize>true</visualize>
+        <update_rate>20</update_rate>
+        
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1</samples>
+              <resolution>1.0</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          
+          <range>
+            <min>0.02</min>
+            <max>3.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </ray>
+        
+        <plugin name="gazebo_ros_range" filename="libgazebo_ros_range.so">
+          <ros>
+            <namespace>/</namespace>
+            <remapping>~/out:=right_parking_sensor</remapping>
+          </ros>
+          <output_type>sensor_msgs/Range</output_type>
+          <radiation_type>ultrasound</radiation_type>
+          <frame_name>right_cam_link</frame_name>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

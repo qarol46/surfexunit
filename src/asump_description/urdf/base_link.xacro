@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Включение файла с параметрами роликов -->
+  <xacro:include filename="roller_params.xacro" />
+
+  <link name="base_footprint"/>
+
+  <!-- Базовое звено -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.109332549621884 -3.99444698804471E-06 0.303288060337734" rpy="0 0 0"/>
+      <mass value="2.5"/>
+      <inertia ixx="13.4992891087176" ixy="0.000473313057343369" ixz="-1.40847406797442"
+               iyy="29.2623362046841" iyz="0.00234656617180413" izz="27.4848319406113"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description)/meshes/base_link.STL"/>
+      </geometry>
+      <material name=""><color rgba="1 1 1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description)/meshes/base_link.STL"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="base_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  
+  <!-- Траки -->
+  <link name="tracks_link">
+    <inertial>
+      <origin xyz="0.105400708208844 1.85139805717996E-07 0.293968729263109" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="14.721208377301" ixy="0.000729274097054354" ixz="-1.7138458385476"
+               iyy="31.0730345912135" iyz="0.00228580331928839" izz="29.139821759891"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description)/meshes/tracks_link.STL"/>
+      </geometry>
+      <material name=""><color rgba="0 0 0 1"/></material>
+    </visual>
+  </link>
+
+  <joint name="tracks_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="tracks_link"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+
+  <gazebo reference="tracks_link">
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <!-- Ролики -->
+  <xacro:roller name="fl" x="0.30749" y="0.25132" z="0.079492" axis_x="0" axis_y="1" axis_z="0"/>
+  <xacro:roller name="fr" x="0.30749" y="-0.25132" z="0.079492" axis_x="0" axis_y="1" axis_z="0"/>
+  <xacro:roller name="rl" x="-0.30675" y="0.25132" z="0.079492" axis_x="0" axis_y="1" axis_z="0"/>
+  <xacro:roller name="rr" x="-0.30675" y="-0.25132" z="0.079492" axis_x="0" axis_y="1" axis_z="0"/>
+
+</robot>
