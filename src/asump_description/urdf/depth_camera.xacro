@@ -1,81 +1,120 @@
-<?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
 
-  <xacro:macro name="depth_camera" 
-               params="parent_link 
-                       x:=0.648246630703766 
-                       y:=-5.20230646739119E-05 
-                       z:=0.252646365207831 
-                       roll:=0 
-                       pitch:=0.387463094039034 
-                       yaw:=0
-                       namespace:=camera">
+      RGB-D depth camera mount (Intel RealSense D435i default).
+      Typical placement: front of base_link at xyz="0.22 0.0 0.18".
+      Topics:
+        /depth_camera/color/image_raw       (RGB)
+        /depth_camera/depth/image_rect_raw  (depth)
+        /depth_camera/depth/points          (PointCloud2)
+      Optical frames follow REP-103 convention (z-forward, x-right, y-down).
     
-    <link name="zed_cam_link">
-      <inertial>
-        <origin xyz="-0.51848 5.1107E-05 -0.16693" rpy="0 0 0"/>
-        <mass value="0.4"/>
-        <inertia ixx="17.974" ixy="-7.0535E-05" ixz="-6.2564"
-                 iyy="31.03" iyz="0.0024043" izz="25.842"/>
-      </inertial>
-      
-      <!--visual>
+  -->
+  <xacro:macro name="rlai_depth_camera" params="parent xyz rpy model">
+    <link name="depth_camera_link">
+      <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.02 0.05 0.05"/>
+          <mesh filename="file://$(find asump_description)/meshes/depth_camera_housing.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-        <material name=""><color rgba="1 1 1 1"/></material>
-      </visual-->
-      
+        <material name="camera_dark_gray">
+          <color rgba="0.12 0.12 0.14 1.0"/>
+        </material>
+      </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.02 0.05 0.05"/>
+          <box size="0.025 0.090 0.025"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="0.072"/>
+        <!-- Thin bar — treat as box: m(b²+c²)/12 etc. -->
+        <inertia ixx="0.000010" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000010"/>
+      </inertial>
     </link>
 
-    <joint name="zed_cam_joint" type="fixed">
-      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
-      <parent link="${parent_link}"/>
-      <child link="zed_cam_link"/>
-      <axis xyz="0 0 0"/>
+    <joint name="depth_camera_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="depth_camera_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
     </joint>
 
-    <joint name="camera_optical_joint" type="fixed">
-        <parent link="zed_cam_link"/>
-        <child link="camera_link_optical"/>
-        <origin xyz="0.05 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <!-- RGB optical frame (REP-103: z-forward, x-right, y-down) -->
+    <link name="depth_camera_rgb_optical_frame"/>
+
+    <joint name="depth_camera_rgb_optical_joint" type="fixed">
+      <parent link="depth_camera_link"/>
+      <child link="depth_camera_rgb_optical_frame"/>
+      <!-- Rotate from body (x-forward) to optical (z-forward): pitch -90°, roll -90° -->
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
     </joint>
 
-    <link name="camera_link_optical"></link>
+    <!-- Depth optical frame -->
+    <link name="depth_camera_depth_optical_frame"/>
 
-    <gazebo reference="zed_cam_link">
-        <material>Gazebo/Black</material>
+    <joint name="depth_camera_depth_optical_joint" type="fixed">
+      <parent link="depth_camera_link"/>
+      <child link="depth_camera_depth_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
 
-        <sensor name="camera" type="depth">
-            <pose> 0 0 0 0 0 0 </pose>
-            <visualize>true</visualize>
-            <update_rate>25</update_rate>
-            <camera>
-                <horizontal_fov>1.089</horizontal_fov>
-                <image>
-                    <format>B8G8R8</format>
-                    <width>640</width>
-                    <height>480</height>
-                </image>
-                <clip>
-                    <near>0.05</near>
-                    <far>8.0</far>
-                </clip>
-            </camera>
-            <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
-                <frame_name>camera_link_optical</frame_name>
-                <min_depth>0.1</min_depth>
-                <max_depth>8.0</max_depth>
-            </plugin>
-        </sensor>
+    <!-- Depth + RGB sensors + visual material — single reference block so
+        the <visual> material override is not overwritten by a later block -->
+    <gazebo reference="depth_camera_link">
+      <visual>
+        <material>
+          <ambient>0.15 0.16 0.18 1.0</ambient>
+          <diffuse>0.22 0.23 0.26 1.0</diffuse>
+          <specular>0.5 0.5 0.55 1.0</specular>
+        </material>
+      </visual>
+      <sensor name="depth_camera" type="depth_camera">
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <topic>/depth_camera/depth</topic>
+        <gz_frame_id>depth_camera_depth_optical_frame</gz_frame_id>
+        <camera name="depth_camera">
+          <horizontal_fov>1.5184</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R_FLOAT32</format>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>10.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.002</stddev>
+          </noise>
+        </camera>
+      </sensor>
+      <sensor name="rgb_camera" type="camera">
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <topic>/depth_camera/image_raw</topic>
+        <gz_frame_id>depth_camera_rgb_optical_frame</gz_frame_id>
+        <camera name="rgb_camera">
+          <horizontal_fov>1.5184</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>RGB_INT8</format>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>100.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.003</stddev>
+          </noise>
+        </camera>
+      </sensor>
     </gazebo>
   </xacro:macro>
-
 </robot>

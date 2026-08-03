@@ -158,7 +158,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true',
                               description='Использовать симулированное время'),
-        DeclareLaunchArgument('use_rviz_arg', default_value='false',
+        DeclareLaunchArgument('use_rviz_arg', default_value='true',
                               description='Использовать RViz'),
         
         gz_resource_path,      # Пути к моделям
