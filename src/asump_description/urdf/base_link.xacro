@@ -10,7 +10,7 @@
   <link name="base_link">
     <inertial>
       <origin xyz="0.109332549621884 -3.99444698804471E-06 0.303288060337734" rpy="0 0 0"/>
-      <mass value="2.5"/>
+      <mass value="7.5"/>
       <inertia ixx="13.4992891087176" ixy="0.000473313057343369" ixz="-1.40847406797442"
                iyy="29.2623362046841" iyz="0.00234656617180413" izz="27.4848319406113"/>
     </inertial>
@@ -36,6 +36,22 @@
     <axis xyz="0 0 0"/>
   </joint>
   
+  <link name="balance_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="3.2"/>
+      <inertia ixx="13.4992891087176" ixy="0.000473313057343369" ixz="-1.40847406797442"
+               iyy="29.2623362046841" iyz="0.00234656617180413" izz="27.4848319406113"/>
+    </inertial>
+  </link>
+
+  <joint name="balance_joint" type="fixed">
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="balance_link"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+
   <!-- Траки -->
   <link name="tracks_link">
     <inertial>
