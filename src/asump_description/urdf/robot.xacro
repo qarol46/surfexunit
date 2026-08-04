@@ -10,7 +10,7 @@
   <xacro:include filename="imu.xacro"/>
   <xacro:include filename="gazebo_control.xacro"/>
   <xacro:include filename="depth_camera.xacro"/>
-
+  <!--xacro:include filename="d415.xacro"/-->
   <xacro:property name="robot_name" value="asump0"/>
 
   <xacro:lidar 
@@ -21,10 +21,16 @@
 
   <xacro:rlai_depth_camera 
     parent="base_link" 
-    xyz="0.648 0 0.253" 
+    xyz="0.648 0 0.24" 
     rpy="0 0 0" 
     model="$(arg camera_model)"
   />
+
+  <!--xacro:simple_d415_camera
+    parent="base_link"
+    xyz="0.648 0.0 0.24"
+    rpy="0 0 0"
+    name="depth_camera"/-->
 
   <!-- Установка камер
   <xacro:left_parking_sensor parent_link="base_link" x="-0.25577" y="0.26863" z="0.46916" roll="0" pitch="-0.087266" yaw="1.5708"/>

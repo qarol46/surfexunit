@@ -1,0 +1,30 @@
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  
+  <!-- Подключаем официальный макрос RealSense D415 -->
+  <xacro:include filename="$(find realsense2_description)/urdf/_d415.urdf.xacro" />
+
+  <!-- Вызываем макрос D415 -->
+  <xacro:sensor_d415 parent="base_link" name="camera" use_nominal_extrinsics="true" use_mesh="true">
+    <origin xyz="0.648 0 0.24" rpy="0 0 0"/>
+  </xacro:sensor_d415>
+
+  <!-- Gazebo Sim (Harmonic) — встроенный RGBD-сенсор -->
+  <gazebo reference="camera_depth_frame">
+    <sensor name="depth_camera" type="rgbd_camera">
+      <topic>depth_camera</topic>
+      <gz_frame_id>camera_depth_frame</gz_frame_id>
+      <camera name="depth_camera">
+        <horizontal_fov>1.5184</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>10.0</far>
+        </clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
+</robot>
