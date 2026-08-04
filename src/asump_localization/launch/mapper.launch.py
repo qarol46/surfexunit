@@ -11,7 +11,7 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('asump_localization')
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
 
-    slam_config = os.path.join(pkg_share, 'config', 'mapper_params.yaml')
+    slam_config = os.path.join(pkg_share, 'config', 'slam_mapper_params.yaml')
     
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
@@ -31,6 +31,24 @@ def generate_launch_description():
         name='lidar_odometry_node',
         output='screen',
         parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]
+    )
+
+    rgbd_mapper_node = Node(
+        package='asump_localization',
+        executable='rgbd_mapper_node',
+        name='rgbd_mapper_node',
+        output='screen',
+        parameters=[{
+            'map_frame': 'map',
+            'base_frame': 'base_footprint',
+            'cloud_topic': '/depth_camera/depth/points',
+            'map_topic': 'rgbd_map',
+            'voxel_leaf_size': 0.25,
+            'keyframe_translation_threshold': 0.5,
+            'keyframe_rotation_threshold': 0.5,
+            'default_save_path': '/home/kirill/ros2_ws/src/surfexunit_ws/src/asump_localization/maps/rgbd_map.pcd',
+            'save_binary': True,
+        }],
     )
 
     slam_toolbox_launch = IncludeLaunchDescription(
@@ -57,6 +75,7 @@ def generate_launch_description():
         use_sim_time_arg,
         use_rviz_arg,
         lidar_odometry_node,
+        rgbd_mapper_node,
         slam_toolbox_launch,
         rviz_node
     ])

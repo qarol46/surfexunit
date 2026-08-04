@@ -150,7 +150,7 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', rviz_config],
-        #condition=IfCondition(use_rviz_arg),
+        condition=IfCondition(use_rviz_arg),
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
@@ -158,7 +158,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true',
                               description='Использовать симулированное время'),
-        DeclareLaunchArgument('use_rviz_arg', default_value='true',
+        DeclareLaunchArgument('use_rviz_arg', default_value='false',
                               description='Использовать RViz'),
         
         gz_resource_path,      # Пути к моделям
