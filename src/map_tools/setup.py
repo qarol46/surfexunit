@@ -29,6 +29,7 @@ setup(
             'map_publisher = map_tools.map_publisher:main',
             'inflation_publisher = map_tools.inflation_publisher:main',
             'zones_publisher = map_tools.zones_publisher:main',
+            'path_planner = map_tools.path_planner:main',
         ],
     },
 )
