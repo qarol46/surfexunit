@@ -1,0 +1,39 @@
+map_publisher:
+  ros__parameters:
+    # Укажи здесь абсолютный путь к твоему map.yaml
+    # Например: /home/user/maps/my_map.yaml
+    map_yaml: "/home/kirill/ros2_ws/src/surfexunit_ws/src/asump_localization/maps/new_warehouse_map.yaml"
+    map_topic: /map_base
+    frame_id: map
+
+    # 0.0 - опубликовать один раз и держать как latched
+    # >0.0 - периодически переопубликовать, удобно для отладки
+    publish_rate: 5.0
+
+inflation_publisher:
+  ros__parameters:
+    input_map_topic: /map_base
+    output_map_topic: /map_inflated
+
+    # Радиус inflation в метрах
+    inflation_radius: 0.55
+
+    # Раздувать ли unknown-зоны
+    inflate_unknown: true
+
+zones_publisher:
+  ros__parameters:
+    frame_id: map
+    publish_rate: 1.0
+
+    charging_station:
+      enabled: true
+      name: "charging_station_1"
+
+      # Центр зарядной станции в системе координат map
+      x: 0.0
+      y: 0.0
+      yaw: 0.0
+
+      # Радиус зоны зарядки, метры
+      radius: 2.5

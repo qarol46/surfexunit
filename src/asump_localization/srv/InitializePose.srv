@@ -1,0 +1,8 @@
+# Запрос
+geometry_msgs/PoseWithCovarianceStamped initial_guess  # можно оставить пустым
+bool use_3d_refinement                                 # использовать ли 3D доуточнение
+---
+# Ответ
+geometry_msgs/PoseWithCovarianceStamped pose           # найденная поза
+bool success
+string message

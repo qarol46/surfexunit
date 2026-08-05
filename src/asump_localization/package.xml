@@ -11,6 +11,14 @@
 
   <depend>slam_toolbox</depend>
   <depend>std_srvs</depend>
+  <depend>yaml-cpp</depend>
+  <depend>rosidl_default_runtime</depend>
+  <depend>visualization_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>libopencv-dev</depend>
+  <depend>opencv</depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <build_depend>rclcpp</build_depend>
   <build_depend>sensor_msgs</build_depend>

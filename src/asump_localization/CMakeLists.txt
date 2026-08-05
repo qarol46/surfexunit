@@ -33,10 +33,21 @@ find_package(PCL REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(yaml-cpp REQUIRED) 
+find_package(rosidl_default_generators REQUIRED)
+find_package(OpenCV REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/InitializePose.srv"
+  DEPENDENCIES geometry_msgs
+)
 
 # Include PCL
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
+include_directories(
+  ${PCL_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS})
+
+  link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 # Add executable
@@ -86,11 +97,40 @@ ament_target_dependencies(rgbd_mapper_node
   std_srvs
 )
 
+add_executable(pose_initializer_node src/pose_initializer.cpp)
+
+ament_target_dependencies(pose_initializer_node
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  tf2_sensor_msgs
+  pcl_conversions
+  std_srvs
+)
+
+target_link_libraries(pose_initializer_node
+  ${PCL_LIBRARIES}
+  yaml-cpp
+  ${OpenCV_LIBS}
+)
+
 install(TARGETS lidar_odometry_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS rgbd_mapper_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(pose_initializer_node "${cpp_typesupport_target}")
+
+install(TARGETS pose_initializer_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
