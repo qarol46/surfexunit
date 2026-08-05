@@ -114,7 +114,7 @@ private:
         vg.filter(*map_filtered_);
         
         has_map_ = true;
-        RCLCPP_INFO(get_logger(), "Map processed: %zu filtered points", map_filtered_->size());
+        //RCLCPP_INFO(get_logger(), "Map processed: %zu filtered points", map_filtered_->size());
     }
     
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
