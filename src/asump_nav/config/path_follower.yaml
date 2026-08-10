@@ -1,0 +1,19 @@
+path_follower:
+  ros__parameters:
+    max_linear_vel: 0.5
+    max_angular_vel: 1.0
+    min_approach_linear_vel: 0.05
+    approach_velocity_scaling_dist: 1.0
+    base_lookahead_dist: 0.6
+    min_lookahead_dist: 0.3
+    max_lookahead_dist: 1.2
+    lookahead_time: 1.5
+    goal_reached_tolerance: 0.1
+    goal_yaw_tolerance: 0.15
+    curvature_velocity_scaling: 0.5
+    control_frequency: 20.0
+    use_velocity_scaled_lookahead: true
+    use_regulated_linear_velocity_scaling: true
+    robot_base_frame: "base_footprint"
+    global_frame: "map"
+    planner_service_name: "get_path_to_point"
