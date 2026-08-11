@@ -31,7 +31,7 @@ class InflationPublisher(Node):
 
         self.declare_parameter('input_map_topic', '/map')
         self.declare_parameter('output_map_topic', '/map_inflated')
-        self.declare_parameter('inflation_radius', 0.55)
+        self.declare_parameter('inflation_radius', 0.75)
         self.declare_parameter('inflate_unknown', False)
 
         self.inflation_radius = self.get_parameter('inflation_radius').value

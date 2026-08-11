@@ -16,7 +16,7 @@
   <xacro:lidar 
     parent_link="base_link" 
     x="0.496510223719" y="0" z="0.596484004557" 
-    roll="0" pitch="0" yaw="0"
+    roll="0" pitch="0" yaw="-3.14"
   />
 
   <xacro:rlai_depth_camera 

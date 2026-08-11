@@ -11,7 +11,7 @@ slam_toolbox:
     debug_logging: false
     throttle_first_scan: 0.0
     scan_topic: /scan
-    use_sim_time: true
+    use_sim_time: false
     
     # Mode
     mode: localization  # localization или mapping

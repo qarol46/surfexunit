@@ -28,7 +28,7 @@ def generate_launch_description():
 
     declare_map_yaml_cmd = DeclareLaunchArgument(
         'map_yaml_file',
-        default_value='/home/kirill/ros2_ws/src/surfexunit_ws/src/asump_localization/maps/new_warehouse_map.yaml',
+        default_value='/home/kirill/ros2_ws/src/surfexunit_ws/src/asump_localization/maps/astramis_map.yaml',
         description='Full path to map yaml file'
     )
 
@@ -74,7 +74,7 @@ def generate_launch_description():
         executable='lidar_odometry_node',
         name='lidar_odometry_node',
         output='screen',
-        parameters=[{'use_sim_time': True}]
+        parameters=[{'use_sim_time': False}]
     )
 
     auto_init_service = TimerAction(

@@ -34,7 +34,7 @@ public:
     declare_parameter("publish_tf", true);
     declare_parameter("odom_frame_id", "odom");
     declare_parameter("base_frame_id", "base_footprint");
-    declare_parameter("lidar_frame_id", "lidar_link");
+    declare_parameter("lidar_frame_id", "laser");
     declare_parameter("scan_queue_size", 2);
     declare_parameter("debug_publish_cloud", true);
     
