@@ -36,4 +36,4 @@ zones_publisher:
       yaw: 0.0
 
       # Радиус зоны зарядки, метры
-      radius: 2.5
+      radius: 1.2

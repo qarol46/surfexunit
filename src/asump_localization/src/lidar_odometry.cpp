@@ -67,7 +67,7 @@ public:
     
     // Subscribers and publishers
     scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-      "/scan", scan_queue_size_, 
+      "/scan_rotated", scan_queue_size_, 
       std::bind(&LidarOdometry::scanCallback, this, std::placeholders::_1));
     
     odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/lidar_odometry", 10);

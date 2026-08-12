@@ -31,7 +31,7 @@ slam_toolbox:
     ceres_dogleg_type:        TRADITIONAL_DOGLEG
     ceres_loss_function:      HuberLoss    # robust to outlier scan matches in repetitive corridors
 
-    scan_topic: /scan
+    scan_topic: /scan_rotated
 
     # Filter out returns closer than the robot body (0.30 m) to prevent
     # ego-points from being baked into the map.

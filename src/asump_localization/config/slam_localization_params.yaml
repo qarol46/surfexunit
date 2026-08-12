@@ -10,7 +10,7 @@ slam_toolbox:
     # General params
     debug_logging: false
     throttle_first_scan: 0.0
-    scan_topic: /scan
+    scan_topic: /scan_rotated
     use_sim_time: false
     
     # Mode

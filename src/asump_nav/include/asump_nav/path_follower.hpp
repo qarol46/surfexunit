@@ -81,6 +81,9 @@ private:
     // Parameters
     double max_linear_vel_;
     double max_angular_vel_;
+    double min_linear_vel_;       // <-- ДОБАВЛЕНО
+    double min_angular_vel_;      // <-- ДОБАВЛЕНО
+    double angle_dead_zone_;      // <-- ДОБАВЛЕНО
     double min_approach_linear_vel_;
     double approach_velocity_scaling_dist_;
     double base_lookahead_dist_;
@@ -101,4 +104,4 @@ private:
 
 }  // namespace autonomous_navigation
 
-#endif  // AUTONOMOUS_NAVIGATION__PATH_FOLLOWER_HPP_
+#endif  // ASUMP_NAV__PATH_FOLLOWER_HPP_

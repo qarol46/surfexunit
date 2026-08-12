@@ -26,7 +26,7 @@ public:
         
         // Parameters
         this->declare_parameter("map_topic", "/map_base");
-        this->declare_parameter("scan_topic", "/scan");
+        this->declare_parameter("scan_topic", "/scan_rotated");
         this->declare_parameter("charger_pose_topic", "/zones/charger_pose");
         this->declare_parameter("output_pose_topic", "/initialpose");
         this->declare_parameter("voxel_size", 0.05);

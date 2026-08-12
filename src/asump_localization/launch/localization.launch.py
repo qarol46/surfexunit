@@ -39,7 +39,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'map_topic': '/map_base',
-            'scan_topic': '/scan',
+            'scan_topic': '/scan_rotated',
             'charger_pose_topic': '/zones/charger_pose',
             'output_pose_topic': '/initialpose',
             'voxel_size': 0.05,
