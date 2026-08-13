@@ -1,9 +1,12 @@
 #include "asump_nav/path_follower.hpp"
 
+#include <std_msgs/msg/string.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <future>
 #include <limits>
+#include <string>
 #include <thread>
 
 namespace autonomous_navigation
@@ -14,8 +17,8 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
 {
   // ==================== Параметры ====================
   max_linear_vel_ = declare_parameter<double>("max_linear_vel", 0.18);
-  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 2.0);
-  
+  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 1.6);
+
   // Новые параметры: минимальные скорости и мёртвая зона угла
   min_linear_vel_ = declare_parameter<double>("min_linear_vel", 0.1);
   min_angular_vel_ = declare_parameter<double>("min_angular_vel", 1.3);
@@ -29,8 +32,8 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   max_lookahead_dist_ = declare_parameter<double>("max_lookahead_dist", 1.2);
   lookahead_time_ = declare_parameter<double>("lookahead_time", 1.5);
 
-  goal_reached_tolerance_ = declare_parameter<double>("goal_reached_tolerance", 0.1);
-  goal_yaw_tolerance_ = declare_parameter<double>("goal_yaw_tolerance", 0.25);
+  goal_reached_tolerance_ = declare_parameter<double>("goal_reached_tolerance", 0.15);
+  goal_yaw_tolerance_ = declare_parameter<double>("goal_yaw_tolerance", 0.35);
 
   curvature_velocity_scaling_ = declare_parameter<double>("curvature_velocity_scaling", 0.5);
   control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
@@ -42,6 +45,7 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
 
   robot_base_frame_ = declare_parameter<std::string>("robot_base_frame", "base_footprint");
   global_frame_ = declare_parameter<std::string>("global_frame", "map");
+
   planner_service_name_ = declare_parameter<std::string>(
     "planner_service_name", "get_path_to_point");
 
@@ -51,6 +55,14 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
 
   // ==================== cmd_vel ====================
   cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+
+  // ==================== Nav status ====================
+  rclcpp::QoS nav_status_qos(10);
+  nav_status_qos.transient_local();
+
+  nav_status_pub_ = create_publisher<std_msgs::msg::String>(
+    "/path_follower/nav_status",
+    nav_status_qos);
 
   // ==================== Клиент планировщика ====================
   planner_client_ = create_client<GetPathToPoint>(planner_service_name_);
@@ -67,10 +79,13 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(get_logger(), "PathFollower готов.");
   RCLCPP_INFO(get_logger(), "  Action: /navigate_to_pose");
   RCLCPP_INFO(get_logger(), "  Сервис планировщика: /%s", planner_service_name_.c_str());
+  RCLCPP_INFO(get_logger(), "  Nav status topic: /path_follower/nav_status");
+
   RCLCPP_INFO(
     get_logger(),
     "  max_lin=%.2f, min_lin=%.2f, max_ang=%.2f, min_ang=%.2f, dead_zone=%.3f, lookahead=%.2f",
-    max_linear_vel_, min_linear_vel_, max_angular_vel_, min_angular_vel_, angle_dead_zone_, base_lookahead_dist_);
+    max_linear_vel_, min_linear_vel_, max_angular_vel_, min_angular_vel_,
+    angle_dead_zone_, base_lookahead_dist_);
 }
 
 // ==================== Action callbacks ====================
@@ -81,6 +96,7 @@ rclcpp_action::GoalResponse PathFollower::handle_goal(
 {
   RCLCPP_INFO(get_logger(), "Принята цель: (%.2f, %.2f)",
     goal->pose.pose.position.x, goal->pose.pose.position.y);
+
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -88,8 +104,12 @@ rclcpp_action::CancelResponse PathFollower::handle_cancel(
   const std::shared_ptr<GoalHandleNav> /*goal_handle*/)
 {
   RCLCPP_INFO(get_logger(), "Получен запрос на отмену");
+
   geometry_msgs::msg::Twist stop;
   cmd_vel_pub_->publish(stop);
+
+  publishNavStatus("CANCEL_REQUESTED");
+
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
@@ -104,16 +124,27 @@ void PathFollower::execute(const std::shared_ptr<GoalHandleNav> goal_handle)
   const auto goal = goal_handle->get_goal();
   auto result = std::make_shared<NavigateToPose::Result>();
 
+  publishNavStatus("PLANNING");
+
   // ШАГ 1: запрос пути у планировщика
   nav_msgs::msg::Path path;
+
   if (!plan_path(goal->pose, path)) {
     RCLCPP_ERROR(get_logger(), "Не удалось построить путь — цель отклонена");
+
+    if (last_plan_error_.empty()) {
+      publishNavStatus("PATH_NOT_FOUND");
+    } else {
+      publishNavStatus(last_plan_error_);
+    }
+
     goal_handle->abort(result);
     return;
   }
 
   if (path.poses.empty()) {
     RCLCPP_ERROR(get_logger(), "Планировщик вернул пустой путь");
+    publishNavStatus("EMPTY_PATH");
     goal_handle->abort(result);
     return;
   }
@@ -121,8 +152,21 @@ void PathFollower::execute(const std::shared_ptr<GoalHandleNav> goal_handle)
   RCLCPP_INFO(get_logger(), "Путь построен: %zu точек. Начинаю движение...",
     path.poses.size());
 
+  publishNavStatus("MOVING");
+
   // ШАГ 2: следование по пути
   follow_path(goal_handle, path);
+}
+
+// ==================== Публикация статуса ====================
+
+void PathFollower::publishNavStatus(const std::string & status)
+{
+  std_msgs::msg::String msg;
+  msg.data = status;
+  nav_status_pub_->publish(msg);
+
+  RCLCPP_DEBUG(get_logger(), "Nav status: %s", status.c_str());
 }
 
 // ==================== Планирование через сервис ====================
@@ -131,12 +175,16 @@ bool PathFollower::plan_path(
   const geometry_msgs::msg::PoseStamped & goal,
   nav_msgs::msg::Path & out_path)
 {
+  last_plan_error_ = "UNKNOWN";
+
   // Ждём сервис
   if (!planner_client_->wait_for_service(
       std::chrono::seconds(static_cast<int>(planner_timeout_))))
   {
     RCLCPP_ERROR(get_logger(), "Сервис планировщика /%s недоступен",
       planner_service_name_.c_str());
+
+    last_plan_error_ = "PLANNER_SERVICE_UNAVAILABLE";
     return false;
   }
 
@@ -144,6 +192,7 @@ bool PathFollower::plan_path(
   request->goal_pose = goal;
 
   RCLCPP_INFO(get_logger(), "Запрашиваю путь у планировщика...");
+
   auto future = planner_client_->async_send_request(request);
 
   // Ждём ответ с таймаутом
@@ -152,16 +201,21 @@ bool PathFollower::plan_path(
 
   if (status != std::future_status::ready) {
     RCLCPP_ERROR(get_logger(), "Таймаут при ожидании ответа планировщика");
+    last_plan_error_ = "PLANNER_TIMEOUT";
     return false;
   }
 
   auto response = future.get();
+
   if (!response->success) {
     RCLCPP_ERROR(get_logger(), "Планировщик сообщил об ошибке");
+    last_plan_error_ = "PLANNER_ERROR";
     return false;
   }
 
   out_path = response->path;
+  last_plan_error_.clear();
+
   return true;
 }
 
@@ -175,6 +229,7 @@ void PathFollower::follow_path(
   auto feedback = std::make_shared<NavigateToPose::Feedback>();
 
   rclcpp::Rate rate(control_frequency_);
+
   double current_linear_vel = 0.0;
 
   // === ЛОКАЛЬНЫЕ ПАРАМЕТРЫ РЕГУЛИРОВАНИЯ ===
@@ -198,12 +253,16 @@ void PathFollower::follow_path(
     if (std::fabs(err) <= dz) {
       return 0.0;
     }
+
     const double abs_raw = std::fabs(raw);
     double abs_cmd = abs_raw;
+
     if (abs_cmd < min_angular) {
       abs_cmd = min_angular;
     }
+
     abs_cmd = std::clamp(abs_cmd, min_angular, max_angular);
+
     const double sign_source = (abs_raw > 1e-6) ? raw : err;
     return std::copysign(abs_cmd, sign_source);
   };
@@ -212,11 +271,15 @@ void PathFollower::follow_path(
     if (goal_handle->is_canceling()) {
       geometry_msgs::msg::Twist stop;
       cmd_vel_pub_->publish(stop);
+
+      publishNavStatus("CANCELED");
+
       goal_handle->canceled(result);
       return;
     }
 
     geometry_msgs::msg::PoseStamped current_pose;
+
     try {
       current_pose = get_current_pose();
     } catch (const std::exception & e) {
@@ -226,8 +289,9 @@ void PathFollower::follow_path(
     }
 
     const auto & goal_pose = path.poses.back();
+
     double dist_to_goal = distance_2d(current_pose.pose.position,
-      goal_pose.pose.position);
+                                      goal_pose.pose.position);
 
     feedback->distance_remaining = dist_to_goal;
     goal_handle->publish_feedback(feedback);
@@ -240,12 +304,15 @@ void PathFollower::follow_path(
 
       bool no_yaw_requested =
         (goal_pose.pose.orientation.w > 0.99 &&
-        std::abs(goal_pose.pose.orientation.z) < 1e-3);
+         std::abs(goal_pose.pose.orientation.z) < 1e-3);
 
       if (yaw_error < goal_yaw_tolerance_ || no_yaw_requested) {
         geometry_msgs::msg::Twist stop;
         cmd_vel_pub_->publish(stop);
+
         RCLCPP_INFO(get_logger(), "Цель достигнута!");
+        publishNavStatus("REACHED");
+
         goal_handle->succeed(result);
         return;
       }
@@ -304,9 +371,11 @@ void PathFollower::follow_path(
 
     // Преобразуем lookahead в систему робота для Pure Pursuit
     geometry_msgs::msg::PoseStamped lookahead_in_robot;
+
     try {
       auto tf = tf_buffer_->lookupTransform(
         robot_base_frame_, global_frame_, tf2::TimePointZero);
+
       tf2::doTransform(lookahead_point, lookahead_in_robot, tf);
     } catch (const tf2::TransformException & ex) {
       RCLCPP_WARN(get_logger(), "TF error: %s", ex.what());
@@ -317,6 +386,7 @@ void PathFollower::follow_path(
     double lx = lookahead_in_robot.pose.position.x;
     double ly = lookahead_in_robot.pose.position.y;
     double L2 = lx * lx + ly * ly;
+
     double curvature = (L2 < 1e-6) ? 0.0 : (2.0 * ly / L2);
 
     // Линейная скорость
@@ -324,10 +394,12 @@ void PathFollower::follow_path(
 
     // Снижение скорости при большом угле
     double angle_factor = 1.0;
+
     if (std::abs(angle_error) > MAX_ANGLE_FOR_FULL_SPEED) {
       angle_factor = 1.0 -
         (std::abs(angle_error) - MAX_ANGLE_FOR_FULL_SPEED) /
         (MAX_ANGLE_BEFORE_STOP - MAX_ANGLE_FOR_FULL_SPEED);
+
       angle_factor = std::clamp(angle_factor, 0.0, 1.0);
     }
 
@@ -337,6 +409,7 @@ void PathFollower::follow_path(
     if (v > 0.0) {
       v = std::max(v, min_linear);
     }
+
     v = std::clamp(v, 0.0, max_linear);
 
     // === УГЛОВАЯ СКОРОСТЬ ===
@@ -372,6 +445,7 @@ void PathFollower::follow_path(
     cmd.angular.z = omega;
 
     cmd_vel_pub_->publish(cmd);
+
     rate.sleep();
   }
 }
@@ -405,6 +479,7 @@ geometry_msgs::msg::PoseStamped PathFollower::find_lookahead_point(
 
   for (size_t i = 0; i < path.poses.size(); ++i) {
     double d = distance_2d(current.pose.position, path.poses[i].pose.position);
+
     if (d < min_dist) {
       min_dist = d;
       closest_idx = i;
@@ -413,6 +488,7 @@ geometry_msgs::msg::PoseStamped PathFollower::find_lookahead_point(
 
   for (size_t i = closest_idx; i < path.poses.size(); ++i) {
     double d = distance_2d(current.pose.position, path.poses[i].pose.position);
+
     if (d >= lookahead) {
       return path.poses[i];
     }
@@ -452,6 +528,7 @@ double PathFollower::compute_linear_velocity(
   double dt = (control_frequency_ > 0.0) ? (1.0 / control_frequency_) : 0.05;
 
   double dv = v - current_vel;
+
   if (std::abs(dv) > max_accel * dt) {
     v = current_vel + std::copysign(max_accel * dt, dv);
   }

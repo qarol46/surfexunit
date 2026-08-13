@@ -14,6 +14,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(asump_localization REQUIRED)
 
 include_directories(include)
@@ -49,6 +50,35 @@ ament_target_dependencies(path_follower_node
   tf2_ros
   tf2_geometry_msgs
   asump_localization
+)
+
+add_executable(mission_planner_node src/mission_planner_node.cpp)
+
+ament_target_dependencies(mission_planner_node
+  rclcpp
+  nav_msgs
+  geometry_msgs
+  visualization_msgs
+)
+
+install(TARGETS
+  mission_planner_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+add_executable(mission_executor_node src/mission_executor_node.cpp)
+
+ament_target_dependencies(mission_executor_node
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  geometry_msgs
+  std_msgs
+)
+
+install(TARGETS
+  mission_executor_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY include/

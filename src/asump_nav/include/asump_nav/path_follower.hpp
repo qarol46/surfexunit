@@ -12,6 +12,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <std_msgs/msg/string.hpp>
 // Кастомный сервис планировщика
 #include "asump_localization/srv/get_path_to_point.hpp"
 
@@ -42,6 +43,10 @@ private:
     void handle_accepted(const std::shared_ptr<GoalHandleNav> goal_handle);
     void execute(const std::shared_ptr<GoalHandleNav> goal_handle);
 
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr nav_status_pub_;
+    std::string last_plan_error_;
+
+    void publishNavStatus(const std::string & status);
     // Планирование пути через сервис
     bool plan_path(
         const geometry_msgs::msg::PoseStamped & goal,
