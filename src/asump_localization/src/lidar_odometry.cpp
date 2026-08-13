@@ -31,7 +31,7 @@ public:
     declare_parameter("icp_max_correspondence_distance", 0.5);
     declare_parameter("icp_ransac_iterations", 50);
     declare_parameter("voxel_grid_filter_size", 0.05);
-    declare_parameter("publish_tf", true);
+    declare_parameter("publish_tf", false);
     declare_parameter("odom_frame_id", "odom");
     declare_parameter("base_frame_id", "base_footprint");
     declare_parameter("lidar_frame_id", "laser");

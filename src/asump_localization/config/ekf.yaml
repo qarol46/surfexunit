@@ -1,0 +1,82 @@
+ekf_filter_node:
+  ros__parameters:
+    # Частота работы фильтра
+    frequency: 30.0
+
+    # Так как у вас 2D-лидар и плоская одометрия, используем 2D-режим.
+    # Фильтр будет игнорировать z, roll, pitch и использовать x, y, yaw.
+    two_d_mode: true
+
+    # Публиковать TF odom -> base_footprint
+    publish_tf: true
+
+    # Диагностика в логах
+    print_diagnostics: true
+
+    # Именованные фреймы
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    # Если нужно, можно переименовать выходную одометрию:
+    # remap /odometry/filtered -> /odom_fused через remappings в launch-файле
+
+    # ----------------------------
+    # Лидарная одометрия
+    # ----------------------------
+    odom0: /lidar_odometry
+
+    # Порядок полей:
+    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    #
+    # Ваша lidar_odometry публикует позицию и ориентацию,
+    # но twist явно не заполняет, поэтому скорости лучше выключить.
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+
+    # ----------------------------
+    # IMU
+    # ----------------------------
+    imu0: /imu/data
+
+    # Рекомендуемый безопасный вариант:
+    # использовать только угловую скорость вокруг вертикальной оси Z.
+    #
+    # Порядок полей:
+    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 10
+
+    # Удалять гравитационную составляющую из ускорений.
+    # В данном конфиге ускорения не используются, но параметр полезный,
+    # если позже решите включить ax/ay.
+    imu0_remove_gravitational_acceleration: true
+
+    # ----------------------------
+    # Тайминги и TF
+    # ----------------------------
+    sensor_timeout: 0.2
+    transform_timeout: 0.5
+    transform_time_offset: 0.0
+
+    # ----------------------------
+    # Дополнительно
+    # ----------------------------
+    debug: false
+    use_control: false
+    smooth_lag: 0.0

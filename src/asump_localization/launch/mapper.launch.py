@@ -12,6 +12,8 @@ def generate_launch_description():
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
 
     slam_config = os.path.join(pkg_share, 'config', 'slam_mapper_params.yaml')
+
+    ekf_config = os.path.join(pkg_share, 'config', 'ekf.yaml')
     
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
@@ -31,6 +33,16 @@ def generate_launch_description():
         name='lidar_odometry_node',
         output='screen',
         parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]
+    )
+
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[
+            ekf_config
+        ],
     )
 
     rgbd_mapper_node = Node(
@@ -75,6 +87,7 @@ def generate_launch_description():
         use_sim_time_arg,
         use_rviz_arg,
         lidar_odometry_node,
+        ekf_node,
         rgbd_mapper_node,
         slam_toolbox_launch,
         rviz_node

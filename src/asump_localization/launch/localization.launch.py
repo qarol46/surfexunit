@@ -26,6 +26,8 @@ def generate_launch_description():
     slam_toolbox_share = get_package_share_directory('slam_toolbox')
     slam_config = os.path.join(asump_localization_dir, 'config', 'slam_localization_params.yaml')
 
+    ekf_config = os.path.join(asump_localization_dir, 'config', 'ekf.yaml')
+
     declare_map_yaml_cmd = DeclareLaunchArgument(
         'map_yaml_file',
         default_value='/home/kirill/ros2_ws/src/surfexunit_ws/src/asump_localization/maps/astramis_map.yaml',
@@ -77,6 +79,16 @@ def generate_launch_description():
         parameters=[{'use_sim_time': False}]
     )
 
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[
+            ekf_config
+        ],
+    )
+
     auto_init_service = TimerAction(
         period=5.0,  # секунд после старта launch
         actions=[
@@ -96,6 +108,7 @@ def generate_launch_description():
         declare_map_yaml_cmd,
         map_tools_launch,
         lidar_odometry_node,
+        ekf_node,
         scan_matcher_node,
         slam_toolbox_launch,
 
