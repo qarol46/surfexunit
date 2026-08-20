@@ -24,7 +24,14 @@ def generate_launch_description():
             name='mission_planner',
             output='screen',
         ),
-            
+
+        # Node(
+        #     package='asump_nav',
+        #     executable='obstacle_safety_gate_node',
+        #     name='obstacle_safety',
+        #     output='screen'
+        # ),
+
         Node(
             package='rviz2',
             executable='rviz2',

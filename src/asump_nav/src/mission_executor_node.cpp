@@ -2,12 +2,16 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 
 #include <nav2_msgs/action/navigate_to_pose.hpp>
-#include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
 
+#include <std_srvs/srv/trigger.hpp>
+#include <asump_localization/srv/get_waypoint.hpp>
+
 #include <chrono>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,6 +22,9 @@ using namespace std::chrono_literals;
 using NavigateToPose = nav2_msgs::action::NavigateToPose;
 using GoalHandleNav = rclcpp_action::ClientGoalHandle<NavigateToPose>;
 
+using Trigger = std_srvs::srv::Trigger;
+using GetWaypoint = asump_localization::srv::GetWaypoint;
+
 class MissionExecutor : public rclcpp::Node
 {
 public:
@@ -27,8 +34,11 @@ public:
     // ==================== Параметры ====================
     action_name_ = declare_parameter<std::string>("action_name", "navigate_to_pose");
 
-    keypoints_topic_ = declare_parameter<std::string>(
-      "keypoints_topic", "/mission/key_points");
+    start_service_name_ = declare_parameter<std::string>(
+      "start_service_name", "/mission/start");
+
+    waypoint_service_name_ = declare_parameter<std::string>(
+      "waypoint_service_name", "/mission/get_waypoint");
 
     estop_topic_ = declare_parameter<std::string>(
       "estop_topic", "/estop");
@@ -45,18 +55,11 @@ public:
     retry_limit_ = declare_parameter<int>("retry_limit", 2);
     retry_delay_sec_ = declare_parameter<double>("retry_delay_sec", 2.0);
     skip_unreachable_ = declare_parameter<bool>("skip_unreachable", true);
+    auto_start_ = declare_parameter<bool>("auto_start", true);
 
     // ==================== Publishers / Subscribers ====================
     mission_status_pub_ = create_publisher<std_msgs::msg::String>(
       mission_status_topic_, 10);
-
-    rclcpp::QoS keypoints_qos(1);
-    keypoints_qos.transient_local();
-
-    keypoints_sub_ = create_subscription<geometry_msgs::msg::PoseArray>(
-      keypoints_topic_,
-      keypoints_qos,
-      std::bind(&MissionExecutor::keypointsCallback, this, _1));
 
     estop_sub_ = create_subscription<std_msgs::msg::Bool>(
       estop_topic_,
@@ -76,18 +79,29 @@ public:
       nav_status_qos,
       std::bind(&MissionExecutor::navStatusCallback, this, _1));
 
-    // ==================== Action client ====================
+    // ==================== Clients ====================
     nav_client_ = rclcpp_action::create_client<NavigateToPose>(this, action_name_);
+
+    start_client_ = create_client<Trigger>(start_service_name_);
+    waypoint_client_ = create_client<GetWaypoint>(waypoint_service_name_);
+
+    // ==================== Init timer ====================
+    init_timer_ = create_wall_timer(
+      1s,
+      std::bind(&MissionExecutor::initTimerCallback, this));
 
     RCLCPP_INFO(get_logger(), "Mission executor initialized.");
     RCLCPP_INFO(get_logger(), "Action name: %s", action_name_.c_str());
-    RCLCPP_INFO(get_logger(), "Keypoints topic: %s", keypoints_topic_.c_str());
+    RCLCPP_INFO(get_logger(), "Start service: %s", start_service_name_.c_str());
+    RCLCPP_INFO(get_logger(), "Waypoint service: %s", waypoint_service_name_.c_str());
+    RCLCPP_INFO(get_logger(), "Auto start: %s", auto_start_ ? "true" : "false");
   }
 
 private:
   enum class State
   {
     IDLE,
+    STARTING,
     EXECUTING,
     WAITING_RETRY,
     PAUSED_ESTOP,
@@ -95,71 +109,11 @@ private:
     FAILED
   };
 
-  // ==================== Callbacks ====================
+  // ==================== Init ====================
 
-  void keypointsCallback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
+  void initTimerCallback()
   {
-    if (
-      state_ == State::EXECUTING ||
-      state_ == State::WAITING_RETRY ||
-      state_ == State::PAUSED_ESTOP)
-    {
-      RCLCPP_WARN(
-        get_logger(),
-        "New keypoints received while mission is active. Ignoring.");
-      return;
-    }
-
-    waypoints_ = msg->poses;
-    frame_id_ = msg->header.frame_id.empty() ? "map" : msg->header.frame_id;
-
-    current_idx_ = 0;
-    retry_count_ = 0;
-    last_nav_status_ = "UNKNOWN";
-
-    if (waypoints_.empty()) {
-      RCLCPP_WARN(get_logger(), "Received empty keypoints array.");
-      state_ = State::IDLE;
-      publishMissionStatus("EMPTY_KEYPOINTS");
-      return;
-    }
-
-    RCLCPP_INFO(get_logger(), "Received %zu waypoints. Starting mission.",
-                waypoints_.size());
-
-    publishMissionStatus("MISSION_STARTED");
-    sendCurrentGoal();
-  }
-
-  void estopCallback(const std_msgs::msg::Bool::SharedPtr msg)
-  {
-    bool new_estop = msg->data;
-
-    if (new_estop && !estop_active_) {
-      estop_active_ = true;
-      state_ = State::PAUSED_ESTOP;
-
-      RCLCPP_WARN(get_logger(), "E-STOP active. Pausing mission.");
-      publishMissionStatus("ESTOP_PAUSED");
-
-      cancelActiveGoal();
-      return;
-    }
-
-    if (!new_estop && estop_active_) {
-      estop_active_ = false;
-
-      if (state_ == State::PAUSED_ESTOP) {
-        RCLCPP_INFO(get_logger(), "E-STOP released. Resuming mission.");
-        publishMissionStatus("ESTOP_RESUMED");
-        sendCurrentGoal();
-      }
-    }
-  }
-
-  void obstacleReplanCallback(const std_msgs::msg::Bool::SharedPtr msg)
-  {
-    if (!msg->data) {
+    if (!auto_start_) {
       return;
     }
 
@@ -167,26 +121,122 @@ private:
       return;
     }
 
-    if (state_ != State::EXECUTING) {
+    if (state_ == State::IDLE) {
+      tryStartMission();
+    }
+  }
+
+  void tryStartMission()
+  {
+    if (state_ != State::IDLE) {
       return;
     }
 
-    RCLCPP_WARN(get_logger(), "Obstacle replan requested.");
-    publishMissionStatus("OBSTACLE_REPLAN");
+    if (!start_client_->wait_for_service(0s) ||
+        !waypoint_client_->wait_for_service(0s))
+    {
+      publishMissionStatus("WAITING_FOR_MISSION_SERVICES");
+      return;
+    }
+
+    state_ = State::STARTING;
+    publishMissionStatus("REQUESTING_MISSION_START");
+
+    auto request = std::make_shared<Trigger::Request>();
+
+    start_client_->async_send_request(
+      request,
+      std::bind(&MissionExecutor::startResponseCallback, this, _1));
+  }
+
+  void startResponseCallback(
+    rclcpp::Client<Trigger>::SharedFuture future)
+  {
+    auto response = future.get();
+
+    if (!response->success) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Mission start failed: %s",
+        response->message.c_str());
+
+      state_ = State::IDLE;
+      publishMissionStatus("MISSION_START_FAILED");
+      return;
+    }
+
+    RCLCPP_INFO(get_logger(), "Mission started: %s", response->message.c_str());
+    publishMissionStatus("MISSION_STARTED");
+
+    requestWaypoint(true);
+  }
+
+  // ==================== Waypoint service ====================
+
+  void requestWaypoint(bool advance)
+  {
+    if (estop_active_) {
+      return;
+    }
+
+    if (!waypoint_client_->wait_for_service(0s)) {
+      publishMissionStatus("WAITING_FOR_WAYPOINT_SERVICE");
+      state_ = State::WAITING_RETRY;
+      startRetryTimer(1.0);
+      return;
+    }
+
+    auto request = std::make_shared<GetWaypoint::Request>();
+    request->advance = advance;
+
+    waypoint_client_->async_send_request(
+      request,
+      [this, advance](rclcpp::Client<GetWaypoint>::SharedFuture future) {
+        this->waypointResponseCallback(future, advance);
+      });
+  }
+
+  void waypointResponseCallback(
+    rclcpp::Client<GetWaypoint>::SharedFuture future,
+    bool /*advance*/)
+  {
+    auto response = future.get();
+
+    if (!response->success) {
+      if (response->finished) {
+        missionCompleted();
+      } else {
+        handleFailure("WAYPOINT_SERVICE_ERROR");
+      }
+
+      return;
+    }
+
+    current_index_ = response->index;
+    total_waypoints_ = response->total;
+    current_goal_pose_ = response->pose.pose;
+
+    frame_id_ = response->pose.header.frame_id.empty()
+      ? "map"
+      : response->pose.header.frame_id;
 
     retry_count_ = 0;
-    state_ = State::WAITING_RETRY;
 
-    cancelActiveGoal();
-    startRetryTimer(0.5);
+    RCLCPP_INFO(
+      get_logger(),
+      "Received waypoint %d/%d: (%.2f, %.2f)",
+      current_index_ + 1,
+      total_waypoints_,
+      current_goal_pose_.position.x,
+      current_goal_pose_.position.y);
+
+    publishMissionStatus(
+      "RECEIVED_WAYPOINT_" + std::to_string(current_index_ + 1));
+
+    sendCurrentGoal();
   }
 
-  void navStatusCallback(const std_msgs::msg::String::SharedPtr msg)
-  {
-    last_nav_status_ = msg->data;
-  }
-
-  // ==================== Mission logic ====================
+  // ==================== Action logic ====================
 
   void sendCurrentGoal()
   {
@@ -195,16 +245,16 @@ private:
       return;
     }
 
-    if (current_idx_ >= waypoints_.size()) {
-      state_ = State::DONE;
-      RCLCPP_INFO(get_logger(), "=== MISSION COMPLETED ===");
-      publishMissionStatus("MISSION_COMPLETED");
+    if (current_index_ < 0) {
+      requestWaypoint(true);
       return;
     }
 
     if (!nav_client_->wait_for_action_server(1s)) {
-      RCLCPP_WARN(get_logger(), "Action server %s not available. Retrying...",
-                  action_name_.c_str());
+      RCLCPP_WARN(
+        get_logger(),
+        "Action server %s not available. Retrying...",
+        action_name_.c_str());
 
       publishMissionStatus("WAITING_FOR_ACTION_SERVER");
 
@@ -216,18 +266,18 @@ private:
     NavigateToPose::Goal goal_msg;
     goal_msg.pose.header.frame_id = frame_id_;
     goal_msg.pose.header.stamp = now();
-    goal_msg.pose.pose = waypoints_[current_idx_];
+    goal_msg.pose.pose = current_goal_pose_;
 
     RCLCPP_INFO(
       get_logger(),
-      "Sending waypoint %zu/%zu: (%.2f, %.2f)",
-      current_idx_ + 1,
-      waypoints_.size(),
+      "Sending waypoint %d/%d to action server: (%.2f, %.2f)",
+      current_index_ + 1,
+      total_waypoints_,
       goal_msg.pose.pose.position.x,
       goal_msg.pose.pose.position.y);
 
-    publishMissionStatus("NAVIGATING_TO_WAYPOINT_" +
-                         std::to_string(current_idx_ + 1));
+    publishMissionStatus(
+      "NAVIGATING_TO_WAYPOINT_" + std::to_string(current_index_ + 1));
 
     auto send_goal_options =
       rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
@@ -280,22 +330,21 @@ private:
     }
 
     if (state_ == State::WAITING_RETRY) {
-      // Например, cancel был сделан специально ради replan.
       return;
     }
 
     switch (result.code) {
       case rclcpp_action::ResultCode::SUCCEEDED:
-        RCLCPP_INFO(get_logger(), "Waypoint %zu reached.", current_idx_ + 1);
+        RCLCPP_INFO(
+          get_logger(),
+          "Waypoint %d/%d reached.",
+          current_index_ + 1,
+          total_waypoints_);
 
-        publishMissionStatus("WAYPOINT_REACHED_" +
-                             std::to_string(current_idx_ + 1));
+        publishMissionStatus(
+          "WAYPOINT_REACHED_" + std::to_string(current_index_ + 1));
 
-        current_idx_++;
-        retry_count_ = 0;
-        last_nav_status_ = "UNKNOWN";
-
-        sendCurrentGoal();
+        requestWaypoint(true);
         break;
 
       case rclcpp_action::ResultCode::CANCELED:
@@ -319,6 +368,8 @@ private:
     }
   }
 
+  // ==================== Failure handling ====================
+
   void handleFailure(const std::string & reason)
   {
     if (estop_active_) {
@@ -339,7 +390,8 @@ private:
       reason == "PLANNER_SERVICE_UNAVAILABLE" ||
       reason == "GOAL_REJECTED" ||
       reason == "STUCK" ||
-      reason == "UNKNOWN";
+      reason == "UNKNOWN" ||
+      reason == "WAYPOINT_SERVICE_ERROR";
 
     if (!retryable) {
       state_ = State::FAILED;
@@ -352,15 +404,15 @@ private:
 
       RCLCPP_WARN(
         get_logger(),
-        "Retry %d/%d for waypoint %zu. Reason: %s",
+        "Retry %d/%d for waypoint %d. Reason: %s",
         retry_count_,
         retry_limit_,
-        current_idx_ + 1,
+        current_index_ + 1,
         reason.c_str());
 
-      publishMissionStatus("RETRY_WAYPOINT_" +
-                           std::to_string(current_idx_ + 1) +
-                           "_REASON_" + reason);
+      publishMissionStatus(
+        "RETRY_WAYPOINT_" + std::to_string(current_index_ + 1) +
+        "_REASON_" + reason);
 
       state_ = State::WAITING_RETRY;
       startRetryTimer(retry_delay_sec_);
@@ -370,23 +422,90 @@ private:
     if (skip_unreachable_) {
       RCLCPP_WARN(
         get_logger(),
-        "Waypoint %zu unreachable after retries. Skipping.",
-        current_idx_ + 1);
+        "Waypoint %d unreachable after retries. Skipping.",
+        current_index_ + 1);
 
-      publishMissionStatus("SKIPPING_WAYPOINT_" +
-                           std::to_string(current_idx_ + 1));
+      publishMissionStatus(
+        "SKIPPING_WAYPOINT_" + std::to_string(current_index_ + 1));
 
-      current_idx_++;
-      retry_count_ = 0;
-      last_nav_status_ = "UNKNOWN";
-
-      sendCurrentGoal();
+      requestWaypoint(true);
       return;
     }
 
     state_ = State::FAILED;
     publishMissionStatus("FAILED_AFTER_RETRIES_" + reason);
   }
+
+  void missionCompleted()
+  {
+    state_ = State::DONE;
+
+    RCLCPP_INFO(get_logger(), "=== MISSION COMPLETED ===");
+    publishMissionStatus("MISSION_COMPLETED");
+  }
+
+  // ==================== E-Stop / obstacle ====================
+
+  void estopCallback(const std_msgs::msg::Bool::SharedPtr msg)
+  {
+    bool new_estop = msg->data;
+
+    if (new_estop && !estop_active_) {
+      estop_active_ = true;
+      state_ = State::PAUSED_ESTOP;
+
+      RCLCPP_WARN(get_logger(), "E-STOP active. Pausing mission.");
+      publishMissionStatus("ESTOP_PAUSED");
+
+      cancelActiveGoal();
+      return;
+    }
+
+    if (!new_estop && estop_active_) {
+      estop_active_ = false;
+
+      if (state_ == State::PAUSED_ESTOP) {
+        RCLCPP_INFO(get_logger(), "E-STOP released. Resuming mission.");
+        publishMissionStatus("ESTOP_RESUMED");
+
+        if (current_index_ >= 0) {
+          sendCurrentGoal();
+        } else {
+          state_ = State::IDLE;
+          tryStartMission();
+        }
+      }
+    }
+  }
+
+  void obstacleReplanCallback(const std_msgs::msg::Bool::SharedPtr msg)
+  {
+    if (!msg->data) {
+      return;
+    }
+
+    if (estop_active_) {
+      return;
+    }
+
+    if (state_ != State::EXECUTING) {
+      return;
+    }
+
+    RCLCPP_WARN(get_logger(), "Obstacle replan requested.");
+    publishMissionStatus("OBSTACLE_REPLAN");
+
+    state_ = State::WAITING_RETRY;
+    cancelActiveGoal();
+    startRetryTimer(0.5);
+  }
+
+  void navStatusCallback(const std_msgs::msg::String::SharedPtr msg)
+  {
+    last_nav_status_ = msg->data;
+  }
+
+  // ==================== Helpers ====================
 
   void cancelActiveGoal()
   {
@@ -414,9 +533,14 @@ private:
     }
 
     if (delay_sec <= 0.0) {
-      if (state_ == State::WAITING_RETRY) {
-        sendCurrentGoal();
+      if (state_ == State::WAITING_RETRY && !estop_active_) {
+        if (current_index_ >= 0) {
+          sendCurrentGoal();
+        } else {
+          requestWaypoint(true);
+        }
       }
+
       return;
     }
 
@@ -432,7 +556,11 @@ private:
         }
 
         if (state_ == State::WAITING_RETRY && !estop_active_) {
-          sendCurrentGoal();
+          if (current_index_ >= 0) {
+            sendCurrentGoal();
+          } else {
+            requestWaypoint(true);
+          }
         }
       });
   }
@@ -449,7 +577,9 @@ private:
   // ==================== Members ====================
 
   std::string action_name_;
-  std::string keypoints_topic_;
+  std::string start_service_name_;
+  std::string waypoint_service_name_;
+
   std::string estop_topic_;
   std::string obstacle_replan_topic_;
   std::string nav_status_topic_;
@@ -458,13 +588,15 @@ private:
   int retry_limit_;
   double retry_delay_sec_;
   bool skip_unreachable_;
+  bool auto_start_;
 
   State state_ = State::IDLE;
 
-  std::vector<geometry_msgs::msg::Pose> waypoints_;
   std::string frame_id_ = "map";
+  geometry_msgs::msg::Pose current_goal_pose_;
 
-  size_t current_idx_ = 0;
+  int current_index_ = -1;
+  int total_waypoints_ = 0;
   int retry_count_ = 0;
 
   bool estop_active_ = false;
@@ -476,13 +608,16 @@ private:
   rclcpp_action::Client<NavigateToPose>::SharedPtr nav_client_;
   GoalHandleNav::SharedPtr current_goal_handle_;
 
-  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr keypoints_sub_;
+  rclcpp::Client<Trigger>::SharedPtr start_client_;
+  rclcpp::Client<GetWaypoint>::SharedPtr waypoint_client_;
+
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr estop_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obstacle_replan_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr nav_status_sub_;
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mission_status_pub_;
 
+  rclcpp::TimerBase::SharedPtr init_timer_;
   rclcpp::TimerBase::SharedPtr retry_timer_;
 };
 

@@ -11,6 +11,7 @@ def generate_launch_description():
     pkg_asump_bringup = get_package_share_directory('asump_bringup')
     
     urdf_file = os.path.join(pkg_asump_description, 'urdf', 'robot.xacro')
+    twist_mux_params_file = os.path.join(pkg_asump_bringup, 'coonfig', 'twist_mux.yaml')
 
     # Парсинг XACRO в строку URDF
     robot_description = ParameterValue(Command(['xacro ', urdf_file]), value_type=str)
@@ -33,6 +34,14 @@ def generate_launch_description():
             executable='path_planner',
             name='path_planner',
             output='screen'
+        ),
+
+        Node(
+            package='twist_mux',
+            executable='twist_mux',
+            name='twist_mux',
+            output='screen',
+            parameters=[twist_mux_params_file],
         ),
 
         IncludeLaunchDescription(

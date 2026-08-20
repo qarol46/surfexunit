@@ -16,8 +16,8 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
 : Node("path_follower", options)
 {
   // ==================== Параметры ====================
-  max_linear_vel_ = declare_parameter<double>("max_linear_vel", 0.18);
-  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 1.6);
+  max_linear_vel_ = declare_parameter<double>("max_linear_vel", 0.16);
+  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 1.5);
 
   // Новые параметры: минимальные скорости и мёртвая зона угла
   min_linear_vel_ = declare_parameter<double>("min_linear_vel", 0.1);

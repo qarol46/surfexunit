@@ -40,6 +40,7 @@ find_package(OpenCV REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/InitializePose.srv"
   "srv/GetPathToPoint.srv"
+  "srv/GetWaypoint.srv"
   DEPENDENCIES geometry_msgs nav_msgs
 )
 

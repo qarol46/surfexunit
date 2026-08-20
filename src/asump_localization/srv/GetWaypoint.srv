@@ -1,0 +1,7 @@
+bool advance
+---
+bool success
+bool finished
+int32 index
+int32 total
+geometry_msgs/PoseStamped pose

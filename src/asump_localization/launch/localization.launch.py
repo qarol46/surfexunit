@@ -108,7 +108,7 @@ def generate_launch_description():
         declare_map_yaml_cmd,
         map_tools_launch,
         lidar_odometry_node,
-        ekf_node,
+        #ekf_node,
         scan_matcher_node,
         slam_toolbox_launch,
 
