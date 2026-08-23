@@ -53,20 +53,20 @@
   </joint>
 
   <!-- Траки -->
-  <link name="tracks_link">
+  <!--link name="tracks_link">
     <inertial>
       <origin xyz="0.105400708208844 1.85139805717996E-07 0.293968729263109" rpy="0 0 0"/>
       <mass value="2.0"/>
       <inertia ixx="14.721208377301" ixy="0.000729274097054354" ixz="-1.7138458385476"
                iyy="31.0730345912135" iyz="0.00228580331928839" izz="29.139821759891"/>
     </inertial>
-    <!--visual>
+    <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <mesh filename="file://$(find asump_description)/meshes/tracks_link.STL"/>
       </geometry>
       <material name=""><color rgba="0 0 0 1"/></material>
-    </visual-->
+    </visual>
   </link>
 
   <joint name="tracks_joint" type="fixed">
@@ -78,7 +78,7 @@
 
   <gazebo reference="tracks_link">
     <material>Gazebo/Black</material>
-  </gazebo>
+  </gazebo-->
   
   <!-- Ролики -->
   <xacro:roller name="fl" x="0.30749" y="0.25132" z="0.079492" axis_x="0" axis_y="1" axis_z="0"/>

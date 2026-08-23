@@ -1,14 +1,25 @@
 #include <rclcpp/rclcpp.hpp>
+
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+
+#include <std_srvs/srv/trigger.hpp>
+#include <asump_localization/srv/get_waypoint.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <mutex>
 #include <string>
 #include <vector>
 
 using std::placeholders::_1;
+using std::placeholders::_2;
+
+using Trigger = std_srvs::srv::Trigger;
+using GetWaypoint = asump_localization::srv::GetWaypoint;
 
 class MissionPlanner : public rclcpp::Node
 {
@@ -21,28 +32,24 @@ public:
     global_frame_ = declare_parameter<std::string>("global_frame", "map");
 
     robot_width_ = declare_parameter<double>("robot_width", 0.76);
-    pass_overlap_ = declare_parameter<double>("pass_overlap", 0.30);
-
-    // Если 0, посчитаем автоматически:
-    // line_spacing = robot_width * (1 - overlap)
+    pass_overlap_ = declare_parameter<double>("pass_overlap", 0.0);
     line_spacing_ = declare_parameter<double>("line_spacing", 0.2);
-
-    // Радиус безопасности вокруг точки.
-    // Если 0, посчитаем как robot_width / 2 + запас.
     clearance_radius_ = declare_parameter<double>("clearance_radius", 0.8);
 
-    // Минимальная длина свободного сегмента, чтобы он стал проходом.
-    min_segment_length_ = declare_parameter<double>("min_segment_length", 0.7);
+    min_segment_length_ = declare_parameter<double>("min_segment_length", 0.5);
 
-    // Максимальный разрыв, который можно "перепрыгнуть" внутри строки.
-    // 0.0 — объединять только соседние свободные клетки.
+    // Оставлен для совместимости со старыми launch-файлами.
+    // В прямоугольной декомпозиции он сейчас не используется.
     max_gap_ = declare_parameter<double>("max_gap", 0.5);
 
-    // Клетки с cost >= occupied_threshold считаются занятыми.
     occupied_threshold_ = declare_parameter<int>("occupied_threshold", 20);
-
-    // Unknown cells (-1) считать занятыми.
     treat_unknown_as_occupied_ = declare_parameter<bool>("treat_unknown_as_occupied", true);
+
+    start_service_name_ = declare_parameter<std::string>(
+      "start_service_name", "/mission/start");
+
+    waypoint_service_name_ = declare_parameter<std::string>(
+      "waypoint_service_name", "/mission/get_waypoint");
 
     if (line_spacing_ <= 0.0) {
       line_spacing_ = robot_width_ * (1.0 - pass_overlap_);
@@ -76,8 +83,19 @@ public:
       sub_qos,
       std::bind(&MissionPlanner::mapCallback, this, _1));
 
+    // ==================== Services ====================
+    start_srv_ = create_service<Trigger>(
+      start_service_name_,
+      std::bind(&MissionPlanner::startServiceCallback, this, _1, _2));
+
+    waypoint_srv_ = create_service<GetWaypoint>(
+      waypoint_service_name_,
+      std::bind(&MissionPlanner::waypointServiceCallback, this, _1, _2));
+
     RCLCPP_INFO(get_logger(), "Mission planner started.");
     RCLCPP_INFO(get_logger(), "Map topic: %s", map_topic_.c_str());
+    RCLCPP_INFO(get_logger(), "Start service: %s", start_service_name_.c_str());
+    RCLCPP_INFO(get_logger(), "Waypoint service: %s", waypoint_service_name_.c_str());
     RCLCPP_INFO(
       get_logger(),
       "line_spacing = %.3f m, clearance_radius = %.3f m",
@@ -91,33 +109,146 @@ private:
     geometry_msgs::msg::Pose end;
   };
 
+  struct Rect
+  {
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
+  };
+
+  // ==================== Map callback ====================
+
   void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
   {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    bool first_map = !has_map_;
+
     map_ = *msg;
+    has_map_ = true;
 
     frame_id_ = map_.header.frame_id.empty()
       ? global_frame_
       : map_.header.frame_id;
 
-    RCLCPP_INFO(
-      get_logger(),
-      "Received map: %dx%d, resolution = %.3f, frame = %s",
-      map_.info.width, map_.info.height,
-      map_.info.resolution, frame_id_.c_str());
+    if (first_map) {
+      RCLCPP_INFO(
+        get_logger(),
+        "Received first map: %dx%d, resolution = %.3f, frame = %s",
+        map_.info.width, map_.info.height,
+        map_.info.resolution, frame_id_.c_str());
+    } else {
+      RCLCPP_DEBUG(get_logger(), "Map updated.");
+    }
+  }
+
+  // ==================== Services ====================
+
+  void startServiceCallback(
+    const std::shared_ptr<Trigger::Request>,
+    std::shared_ptr<Trigger::Response> response)
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    if (!has_map_) {
+      response->success = false;
+      response->message = "No map received yet";
+      return;
+    }
 
     if (
       map_.info.width == 0 ||
       map_.info.height == 0 ||
       map_.info.resolution <= 0.0)
     {
-      RCLCPP_WARN(get_logger(), "Empty or invalid map.");
+      response->success = false;
+      response->message = "Empty or invalid map";
       return;
     }
 
     buildSafeGrid();
-    generateKeyPoints();
-    publish();
+
+    auto rectangles = decomposeRectangles();
+    auto ordered_rectangles = orderRectangles(rectangles);
+
+    generateCoverage(ordered_rectangles);
+
+    current_index_ = -1;
+
+    publishVisualization();
+
+    response->success = true;
+    response->message =
+      "Generated " + std::to_string(waypoints_.size()) +
+      " waypoints from " + std::to_string(ordered_rectangles.size()) +
+      " rectangles";
+
+    RCLCPP_INFO(
+      get_logger(),
+      "Mission generated: %zu waypoints, %zu rectangles.",
+      waypoints_.size(), ordered_rectangles.size());
   }
+
+  void waypointServiceCallback(
+    const std::shared_ptr<GetWaypoint::Request> request,
+    std::shared_ptr<GetWaypoint::Response> response)
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    response->success = false;
+    response->finished = false;
+    response->index = current_index_;
+    response->total = static_cast<int>(waypoints_.size());
+
+    if (waypoints_.empty()) {
+      response->finished = true;
+      response->success = false;
+      return;
+    }
+
+    if (request->advance) {
+      if (current_index_ + 1 < static_cast<int>(waypoints_.size())) {
+        ++current_index_;
+      } else {
+        response->finished = true;
+        response->success = false;
+        response->index = current_index_;
+        return;
+      }
+    } else {
+      // Если запрашивают текущую точку до первого advance,
+      // даём первую точку.
+      if (current_index_ < 0) {
+        current_index_ = 0;
+      }
+    }
+
+    if (current_index_ < 0 || current_index_ >= static_cast<int>(waypoints_.size())) {
+      response->finished = true;
+      response->success = false;
+      return;
+    }
+
+    response->success = true;
+    response->finished = false;
+    response->index = current_index_;
+    response->total = static_cast<int>(waypoints_.size());
+
+    response->pose.header.frame_id = frame_id_;
+    response->pose.header.stamp = now();
+    response->pose.pose = waypoints_[current_index_];
+
+    RCLCPP_INFO(
+      get_logger(),
+      "Providing waypoint %d/%d: (%.2f, %.2f)",
+      current_index_ + 1,
+      static_cast<int>(waypoints_.size()),
+      response->pose.pose.position.x,
+      response->pose.pose.position.y);
+  }
+
+  // ==================== Grid helpers ====================
 
   size_t index(int x, int y) const
   {
@@ -201,18 +332,218 @@ private:
     }
   }
 
-  bool segmentLongEnough(const std::vector<int> & cells) const
+  bool isFreeUncovered(
+    int x,
+    int y,
+    const std::vector<char> & covered) const
   {
-    if (cells.empty()) {
+    if (!inMap(x, y)) {
       return false;
     }
 
-    const double res = map_.info.resolution;
-    const double length =
-      static_cast<double>(cells.back() - cells.front()) * res;
+    const auto idx = index(x, y);
 
-    return length >= min_segment_length_;
+    return safe_grid_[idx] && !covered[idx];
   }
+
+  // ==================== Rectangle decomposition ====================
+
+  int horizontalRun(
+    int x,
+    int y,
+    const std::vector<char> & covered) const
+  {
+    int len = 0;
+
+    while (isFreeUncovered(x + len, y, covered)) {
+      ++len;
+    }
+
+    return len;
+  }
+
+  int verticalRun(
+    int x,
+    int y,
+    const std::vector<char> & covered) const
+  {
+    int len = 0;
+
+    while (isFreeUncovered(x, y + len, covered)) {
+      ++len;
+    }
+
+    return len;
+  }
+
+  bool canExpandDown(
+    const Rect & r,
+    const std::vector<char> & covered) const
+  {
+    int ny = r.y + r.h;
+
+    if (ny >= static_cast<int>(map_.info.height)) {
+      return false;
+    }
+
+    for (int dx = 0; dx < r.w; ++dx) {
+      if (!isFreeUncovered(r.x + dx, ny, covered)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool canExpandRight(
+    const Rect & r,
+    const std::vector<char> & covered) const
+  {
+    int nx = r.x + r.w;
+
+    if (nx >= static_cast<int>(map_.info.width)) {
+      return false;
+    }
+
+    for (int dy = 0; dy < r.h; ++dy) {
+      if (!isFreeUncovered(nx, r.y + dy, covered)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void markRect(
+    const Rect & r,
+    std::vector<char> & covered) const
+  {
+    for (int yy = r.y; yy < r.y + r.h; ++yy) {
+      for (int xx = r.x; xx < r.x + r.w; ++xx) {
+        covered[index(xx, yy)] = true;
+      }
+    }
+  }
+
+  std::vector<Rect> decomposeRectangles()
+  {
+    std::vector<Rect> rectangles;
+
+    const int w = static_cast<int>(map_.info.width);
+    const int h = static_cast<int>(map_.info.height);
+
+    std::vector<char> covered(
+      static_cast<size_t>(w) * static_cast<size_t>(h),
+      false);
+
+    for (int y = 0; y < h; ++y) {
+      for (int x = 0; x < w; ++x) {
+        if (!isFreeUncovered(x, y, covered)) {
+          continue;
+        }
+
+        int h_run = horizontalRun(x, y, covered);
+        int v_run = verticalRun(x, y, covered);
+
+        Rect rect;
+        rect.x = x;
+        rect.y = y;
+        rect.w = 1;
+        rect.h = 1;
+
+        if (h_run >= v_run) {
+          rect.w = h_run;
+          rect.h = 1;
+
+          while (canExpandDown(rect, covered)) {
+            ++rect.h;
+          }
+        } else {
+          rect.h = v_run;
+          rect.w = 1;
+
+          while (canExpandRight(rect, covered)) {
+            ++rect.w;
+          }
+        }
+
+        markRect(rect, covered);
+        rectangles.push_back(rect);
+      }
+    }
+
+    return rectangles;
+  }
+
+  double rectCenterX(const Rect & r) const
+  {
+    return static_cast<double>(r.x) + 0.5 * static_cast<double>(r.w);
+  }
+
+  double rectCenterY(const Rect & r) const
+  {
+    return static_cast<double>(r.y) + 0.5 * static_cast<double>(r.h);
+  }
+
+  double rectDistance2(const Rect & a, const Rect & b) const
+  {
+    double dx = rectCenterX(a) - rectCenterX(b);
+    double dy = rectCenterY(a) - rectCenterY(b);
+
+    return dx * dx + dy * dy;
+  }
+
+  std::vector<Rect> orderRectangles(const std::vector<Rect> & rectangles)
+  {
+    std::vector<Rect> ordered;
+
+    if (rectangles.empty()) {
+      return ordered;
+    }
+
+    std::vector<Rect> remaining = rectangles;
+
+    // Стартовый прямоугольник: самый нижний/левый по center.
+    std::sort(
+      remaining.begin(),
+      remaining.end(),
+      [this](const Rect & a, const Rect & b) {
+        double ay = rectCenterY(a);
+        double by = rectCenterY(b);
+
+        if (std::fabs(ay - by) > 1e-6) {
+          return ay < by;
+        }
+
+        return rectCenterX(a) < rectCenterX(b);
+      });
+
+    Rect current = remaining.front();
+    remaining.erase(remaining.begin());
+    ordered.push_back(current);
+
+    while (!remaining.empty()) {
+      double best_dist = std::numeric_limits<double>::max();
+      size_t best_idx = 0;
+
+      for (size_t i = 0; i < remaining.size(); ++i) {
+        double d = rectDistance2(current, remaining[i]);
+
+        if (d < best_dist) {
+          best_dist = d;
+          best_idx = i;
+        }
+      }
+
+      current = remaining[best_idx];
+      remaining.erase(remaining.begin() + best_idx);
+      ordered.push_back(current);
+    }
+
+    return ordered;
+  }
+
+  // ==================== Coverage generation ====================
 
   geometry_msgs::msg::Quaternion quatFromYaw(double yaw) const
   {
@@ -224,140 +555,166 @@ private:
     return q;
   }
 
-  void generateKeyPoints()
+  std::vector<double> samplePositions(
+    double min_value,
+    double max_value,
+    double spacing) const
   {
-    key_points_.poses.clear();
-    segments_.clear();
+    std::vector<double> result;
 
-    const int w = static_cast<int>(map_.info.width);
-    const int h = static_cast<int>(map_.info.height);
+    const double eps = 1e-3;
+    const double length = max_value - min_value;
+
+    if (length <= spacing * 0.5) {
+      result.push_back(0.5 * (min_value + max_value));
+      return result;
+    }
+
+    double p = min_value + spacing * 0.5;
+
+    while (p <= max_value - spacing * 0.5 + eps) {
+      result.push_back(p);
+      p += spacing;
+    }
+
+    if (result.empty()) {
+      result.push_back(0.5 * (min_value + max_value));
+    }
+
+    return result;
+  }
+
+  void addLine(
+    const geometry_msgs::msg::Pose & start,
+    const geometry_msgs::msg::Pose & end)
+  {
+    double dx = end.position.x - start.position.x;
+    double dy = end.position.y - start.position.y;
+    double length = std::hypot(dx, dy);
+
+    if (length < min_segment_length_) {
+      return;
+    }
+
+    waypoints_.push_back(start);
+    waypoints_.push_back(end);
+    segments_.push_back(Segment{start, end});
+  }
+
+  void addRectCoverage(const Rect & rect)
+  {
     const double res = map_.info.resolution;
 
-    int row_step = static_cast<int>(std::round(line_spacing_ / res));
-    if (row_step < 1) {
-      row_step = 1;
-    }
+    const double x_min =
+      map_.info.origin.position.x +
+      (static_cast<double>(rect.x) + 0.5) * res;
 
-    int max_gap_cells = 1;
-    if (max_gap_ > 0.0) {
-      max_gap_cells = static_cast<int>(std::ceil(max_gap_ / res));
-      if (max_gap_cells < 1) {
-        max_gap_cells = 1;
-      }
-    }
+    const double x_max =
+      map_.info.origin.position.x +
+      (static_cast<double>(rect.x + rect.w - 1) + 0.5) * res;
 
-    const int start_row = row_step / 2;
+    const double y_min =
+      map_.info.origin.position.y +
+      (static_cast<double>(rect.y) + 0.5) * res;
 
-    // true -> едем слева направо
-    // false -> едем справа налево
-    bool forward = true;
+    const double y_max =
+      map_.info.origin.position.y +
+      (static_cast<double>(rect.y + rect.h - 1) + 0.5) * res;
 
-    for (int my = start_row; my < h; my += row_step) {
-      std::vector<int> free_x;
-      free_x.reserve(w);
+    const double width_m = static_cast<double>(rect.w) * res;
+    const double height_m = static_cast<double>(rect.h) * res;
 
-      for (int mx = 0; mx < w; ++mx) {
-        if (safe_grid_[index(mx, my)]) {
-          free_x.push_back(mx);
-        }
-      }
+    if (width_m >= height_m) {
+      // Горизонтальные проходы вдоль X.
+      auto y_values = samplePositions(y_min, y_max, line_spacing_);
 
-      if (free_x.empty()) {
-        continue;
-      }
+      for (double y : y_values) {
+        geometry_msgs::msg::Pose start;
+        geometry_msgs::msg::Pose end;
 
-      // Разбиваем свободные клетки на сегменты.
-      std::vector<std::vector<int>> row_segments;
-      std::vector<int> current;
-      current.push_back(free_x.front());
+        start.position.z = 0.0;
+        end.position.z = 0.0;
 
-      for (size_t i = 1; i < free_x.size(); ++i) {
-        const int gap = free_x[i] - free_x[i - 1];
+        start.position.y = y;
+        end.position.y = y;
 
-        if (gap <= max_gap_cells) {
-          current.push_back(free_x[i]);
+        if (snake_forward_) {
+          start.position.x = x_min;
+          end.position.x = x_max;
+
+          start.orientation = quatFromYaw(0.0);
+          end.orientation = quatFromYaw(0.0);
         } else {
-          if (segmentLongEnough(current)) {
-            row_segments.push_back(current);
-          }
+          start.position.x = x_max;
+          end.position.x = x_min;
 
-          current.clear();
-          current.push_back(free_x[i]);
-        }
-      }
-
-      if (segmentLongEnough(current)) {
-        row_segments.push_back(current);
-      }
-
-      if (row_segments.empty()) {
-        continue;
-      }
-
-      // Если направление назад, обрабатываем сегменты справа налево.
-      if (!forward) {
-        std::reverse(row_segments.begin(), row_segments.end());
-      }
-
-      const double y =
-        map_.info.origin.position.y +
-        (static_cast<double>(my) + 0.5) * res;
-
-      const double yaw = forward ? 0.0 : M_PI;
-      const auto orientation = quatFromYaw(yaw);
-
-      for (const auto & seg_cells : row_segments) {
-        if (seg_cells.empty()) {
-          continue;
+          start.orientation = quatFromYaw(M_PI);
+          end.orientation = quatFromYaw(M_PI);
         }
 
-        const int start_cell = forward ? seg_cells.front() : seg_cells.back();
-        const int end_cell = forward ? seg_cells.back() : seg_cells.front();
-
-        geometry_msgs::msg::Pose start_pose;
-        start_pose.position.x =
-          map_.info.origin.position.x +
-          (static_cast<double>(start_cell) + 0.5) * res;
-
-        start_pose.position.y = y;
-        start_pose.position.z = 0.0;
-        start_pose.orientation = orientation;
-
-        geometry_msgs::msg::Pose end_pose;
-        end_pose.position.x =
-          map_.info.origin.position.x +
-          (static_cast<double>(end_cell) + 0.5) * res;
-
-        end_pose.position.y = y;
-        end_pose.position.z = 0.0;
-        end_pose.orientation = orientation;
-
-        key_points_.poses.push_back(start_pose);
-        key_points_.poses.push_back(end_pose);
-
-        segments_.push_back(Segment{start_pose, end_pose});
+        addLine(start, end);
+        snake_forward_ = !snake_forward_;
       }
+    } else {
+      // Вертикальные проходы вдоль Y.
+      auto x_values = samplePositions(x_min, x_max, line_spacing_);
 
-      // Меняем направление только если строка реально дала сегменты.
-      forward = !forward;
-    }
+      for (double x : x_values) {
+        geometry_msgs::msg::Pose start;
+        geometry_msgs::msg::Pose end;
 
-    RCLCPP_INFO(
-      get_logger(),
-      "Generated %zu key points, %zu segments.",
-      key_points_.poses.size(), segments_.size());
+        start.position.z = 0.0;
+        end.position.z = 0.0;
 
-    if (key_points_.poses.empty()) {
-      RCLCPP_WARN(
-        get_logger(),
-        "No coverage points generated. Check robot_width, clearance_radius and map occupancy.");
+        start.position.x = x;
+        end.position.x = x;
+
+        if (snake_forward_) {
+          start.position.y = y_min;
+          end.position.y = y_max;
+
+          start.orientation = quatFromYaw(M_PI / 2.0);
+          end.orientation = quatFromYaw(M_PI / 2.0);
+        } else {
+          start.position.y = y_max;
+          end.position.y = y_min;
+
+          start.orientation = quatFromYaw(-M_PI / 2.0);
+          end.orientation = quatFromYaw(-M_PI / 2.0);
+        }
+
+        addLine(start, end);
+        snake_forward_ = !snake_forward_;
+      }
     }
   }
 
-  void publish()
+  void generateCoverage(const std::vector<Rect> & rectangles)
   {
+    waypoints_.clear();
+    segments_.clear();
+
+    snake_forward_ = true;
+
+    for (const auto & rect : rectangles) {
+      addRectCoverage(rect);
+    }
+
+    if (waypoints_.empty()) {
+      RCLCPP_WARN(
+        get_logger(),
+        "No coverage waypoints generated. Check clearance_radius, occupied_threshold and min_segment_length.");
+    }
+  }
+
+  // ==================== Visualization ====================
+
+  void publishVisualization()
+  {
+    key_points_.poses = waypoints_;
     key_points_.header.frame_id = frame_id_;
     key_points_.header.stamp = now();
+
     key_points_pub_->publish(key_points_);
 
     publishMarkers();
@@ -367,19 +724,18 @@ private:
   {
     visualization_msgs::msg::MarkerArray markers;
 
-    // Сначала удаляем старые маркеры.
     visualization_msgs::msg::Marker delete_all;
     delete_all.header.frame_id = frame_id_;
     delete_all.header.stamp = now();
     delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
     markers.markers.push_back(delete_all);
 
-    if (key_points_.poses.empty()) {
+    if (waypoints_.empty()) {
       markers_pub_->publish(markers);
       return;
     }
 
-    // ==================== Линия порядка объезда ====================
+    // Линия порядка объезда
     visualization_msgs::msg::Marker line;
     line.header.frame_id = frame_id_;
     line.header.stamp = now();
@@ -394,13 +750,13 @@ private:
     line.color.b = 0.0;
     line.color.a = 1.0;
 
-    for (const auto & p : key_points_.poses) {
+    for (const auto & p : waypoints_) {
       line.points.push_back(p.position);
     }
 
     markers.markers.push_back(line);
 
-    // ==================== Точки ====================
+    // Точки
     visualization_msgs::msg::Marker spheres;
     spheres.header.frame_id = frame_id_;
     spheres.header.stamp = now();
@@ -419,13 +775,13 @@ private:
     spheres.color.b = 0.2;
     spheres.color.a = 1.0;
 
-    for (const auto & p : key_points_.poses) {
+    for (const auto & p : waypoints_) {
       spheres.points.push_back(p.position);
     }
 
     markers.markers.push_back(spheres);
 
-    // ==================== Стрелки направлений ====================
+    // Стрелки направлений
     int id = 10;
 
     for (const auto & seg : segments_) {
@@ -441,9 +797,9 @@ private:
       arrow.points.push_back(seg.start.position);
       arrow.points.push_back(seg.end.position);
 
-      arrow.scale.x = 0.02;  // shaft diameter
-      arrow.scale.y = 0.06;  // head diameter
-      arrow.scale.z = 0.10;  // head length
+      arrow.scale.x = 0.02;
+      arrow.scale.y = 0.06;
+      arrow.scale.z = 0.10;
 
       arrow.color.r = 0.2;
       arrow.color.g = 0.6;
@@ -456,7 +812,7 @@ private:
     markers_pub_->publish(markers);
   }
 
-  // ==================== Параметры ====================
+  // ==================== Parameters ====================
   std::string map_topic_;
   std::string global_frame_;
 
@@ -470,18 +826,34 @@ private:
   int occupied_threshold_;
   bool treat_unknown_as_occupied_;
 
-  // ==================== Состояние ====================
+  std::string start_service_name_;
+  std::string waypoint_service_name_;
+
+  // ==================== State ====================
+  std::mutex state_mutex_;
+
+  bool has_map_ = false;
   std::string frame_id_;
+
   nav_msgs::msg::OccupancyGrid map_;
   std::vector<bool> safe_grid_;
 
-  geometry_msgs::msg::PoseArray key_points_;
+  std::vector<geometry_msgs::msg::Pose> waypoints_;
   std::vector<Segment> segments_;
+
+  geometry_msgs::msg::PoseArray key_points_;
+
+  int current_index_ = -1;
+  bool snake_forward_ = true;
 
   // ==================== ROS ====================
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
+
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr key_points_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
+
+  rclcpp::Service<Trigger>::SharedPtr start_srv_;
+  rclcpp::Service<GetWaypoint>::SharedPtr waypoint_srv_;
 };
 
 int main(int argc, char ** argv)

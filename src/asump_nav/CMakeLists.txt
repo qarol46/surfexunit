@@ -15,6 +15,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(asump_localization REQUIRED)
 
 include_directories(include)
@@ -52,13 +53,34 @@ ament_target_dependencies(path_follower_node
   asump_localization
 )
 
+add_executable(obstacle_safety_gate_node
+  src/obstacle_safety_gate_node.cpp
+)
+
+ament_target_dependencies(obstacle_safety_gate_node
+  rclcpp
+  geometry_msgs
+  sensor_msgs
+  nav_msgs
+  std_msgs
+  tf2
+  tf2_ros
+)
+
+install(TARGETS
+  obstacle_safety_gate_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 add_executable(mission_planner_node src/mission_planner_node.cpp)
 
 ament_target_dependencies(mission_planner_node
   rclcpp
   nav_msgs
   geometry_msgs
+  std_srvs
   visualization_msgs
+  asump_localization
 )
 
 install(TARGETS
@@ -74,6 +96,8 @@ ament_target_dependencies(mission_executor_node
   nav2_msgs
   geometry_msgs
   std_msgs
+  std_srvs
+  asump_localization
 )
 
 install(TARGETS
