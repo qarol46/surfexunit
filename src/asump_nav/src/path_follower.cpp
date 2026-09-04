@@ -16,12 +16,12 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
 : Node("path_follower", options)
 {
   // ==================== Параметры ====================
-  max_linear_vel_ = declare_parameter<double>("max_linear_vel", 0.16);
-  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 1.5);
+  max_linear_vel_ = declare_parameter<double>("max_linear_vel", 0.25);
+  max_angular_vel_ = declare_parameter<double>("max_angular_vel", 2.05);
 
   // Новые параметры: минимальные скорости и мёртвая зона угла
-  min_linear_vel_ = declare_parameter<double>("min_linear_vel", 0.1);
-  min_angular_vel_ = declare_parameter<double>("min_angular_vel", 1.3);
+  min_linear_vel_ = declare_parameter<double>("min_linear_vel", 0.18);
+  min_angular_vel_ = declare_parameter<double>("min_angular_vel", 1.8);
   angle_dead_zone_ = declare_parameter<double>("angle_dead_zone", 0.15); // ~2 градуса
 
   min_approach_linear_vel_ = declare_parameter<double>("min_approach_linear_vel", 0.05);
@@ -33,7 +33,7 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   lookahead_time_ = declare_parameter<double>("lookahead_time", 1.5);
 
   goal_reached_tolerance_ = declare_parameter<double>("goal_reached_tolerance", 0.15);
-  goal_yaw_tolerance_ = declare_parameter<double>("goal_yaw_tolerance", 0.35);
+  goal_yaw_tolerance_ = declare_parameter<double>("goal_yaw_tolerance", 0.15);
 
   curvature_velocity_scaling_ = declare_parameter<double>("curvature_velocity_scaling", 0.5);
   control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
@@ -321,7 +321,7 @@ void PathFollower::follow_path(
       double ang_err = normalize_angle(goal_yaw - current_yaw);
 
       // При довороте на цели dead_zone = 0.0, чтобы точно доехать до нужного угла.
-      cmd.angular.z = limit_angular(ang_err * ROTATION_KP, ang_err, 0.0);
+      cmd.angular.z = limit_angular(ang_err * ROTATION_KP, ang_err, goal_yaw_tolerance_);
 
       if (INVERT_ANGULAR) {
         cmd.angular.z = -cmd.angular.z;

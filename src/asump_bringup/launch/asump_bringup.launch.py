@@ -36,13 +36,13 @@ def generate_launch_description():
             output='screen'
         ),
 
-        Node(
-            package='twist_mux',
-            executable='twist_mux',
-            name='twist_mux',
-            output='screen',
-            parameters=[twist_mux_params_file],
-        ),
+        # Node(
+        #     package='twist_mux',
+        #     executable='twist_mux',
+        #     name='twist_mux',
+        #     output='screen',
+        #     parameters=[twist_mux_params_file],
+        # ),
 
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('asump_nav'), 'launch', 'navigation.launch.py')
