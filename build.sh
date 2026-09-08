@@ -6,10 +6,9 @@ IMAGE_NAME="surfexunit"
 
 # Выбор базового образа в зависимости от архитектуры
 if [ "$ARCH" = "aarch64" ]; then
-    # Jetson Xavier NX (ARM64) - образ с поддержкой NVIDIA L4T
-    # Примечание: при необходимости уточните тег (например, r35.4.1 или r36.2.0) под вашу версию JetPack
-    BASE_IMAGE="dustynv/ros:humble-ros-base-l4t"
-    echo "Обнаружена архитектура aarch64 (Jetson). Используем L4T образ: $BASE_IMAGE"
+    # Используем запрошенный образ с VNC и ROS2 Humble для ARM64
+    BASE_IMAGE="tiryoh/ros2-desktop-vnc:humble-arm64-20230129T1546"
+    echo "Обнаружена архитектура aarch64 (Jetson). Используем образ: $BASE_IMAGE"
 elif [ "$ARCH" = "x86_64" ]; then
     # Мини-ПК (x86_64) - стандартный десктопный образ ROS2
     BASE_IMAGE="osrf/ros:humble-desktop"

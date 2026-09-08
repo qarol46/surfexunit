@@ -32,15 +32,36 @@ DOCKER_ARGS=(
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw
     -v /dev:/dev
     # Монтирование исходников позволяет редактировать код на хосте и пересобирать его внутри контейнера
-    -v "$PWD/src":/ros2_ws/src:rw
+    -v "$PWD/src":/surfexunit_ws/src:rw
 )
 
-# Добавление поддержки GPU, если это Jetson или есть NVIDIA GPU на мини-ПК
-if uname -m | grep -q "aarch64" || command -v nvidia-smi >/dev/null 2>&1; then
+# Добавление поддержки GPU в зависимости от архитектуры
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    # Jetson (L4T) - используем NVIDIA Container Runtime
+    DOCKER_ARGS+=(--runtime nvidia)
+    echo "Обнаружен Jetson. Используем --runtime nvidia для доступа к GPU."
+elif command -v nvidia-smi >/dev/null 2>&1; then
+    # Мини-ПК с NVIDIA GPU - используем стандартный флаг --gpus
     DOCKER_ARGS+=(--gpus all)
+    echo "Обнаружена NVIDIA GPU на x86_64. Используем --gpus all."
 fi
+
+# Поскольку вы используете образ tiryoh/ros2-desktop-vnc, 
+# добавляем проброс порта для VNC (по умолчанию 6080 для веб-доступа или 5900 для VNC-клиента)
+DOCKER_ARGS+=(
+    -p 6080:6080
+    -p 5900:5900
+)
 
 docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME"
 
 echo "Контейнер '$CONTAINER_NAME' успешно запущен."
+echo ""
+echo "========================================="
+echo "ДОСТУП К ГРАФИЧЕСКОМУ ИНТЕРФЕЙСУ (VNC):"
+echo "Веб-браузер: http://$(hostname -I | awk '{print $1}'):6080"
+echo "VNC-клиент:  $(hostname -I | awk '{print $1}'):5900"
+echo "========================================="
+echo ""
 echo "Используйте './exec.sh' для открытия нового окна терминала внутри контейнера."
