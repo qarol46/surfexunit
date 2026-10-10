@@ -4,18 +4,31 @@ set -e
 CONTAINER_NAME="surfexunit_container"
 IMAGE_NAME="surfexunit"
 
-# Остановка и удаление старого контейнера с тем же именем
+# Функция для получения реального пути устройства по symlink
+get_real_device() {
+    local symlink_name="$1"
+    local symlink_path="/dev/${symlink_name}"
+    local real_path
+    real_path=$(readlink -f "$symlink_path" 2>/dev/null || true)
+    
+    if [ -z "$real_path" ] || [ ! -e "$real_path" ]; then
+        echo "⚠️  Устройство ${symlink_path} не найдено. Пропускаем." >&2
+        return 1
+    fi
+    echo "$real_path"
+}
+
+# Остановка и удаление старого контейнера
 if [ "$(docker ps -aq -f name=^/${CONTAINER_NAME}$)" ]; then
     echo "Остановка и удаление существующего контейнера '$CONTAINER_NAME'..."
     docker stop "$CONTAINER_NAME" >/dev/null 2>&1
     docker rm "$CONTAINER_NAME" >/dev/null 2>&1
 fi
 
-# Настройка ROS_DOMAIN_ID (важно для коммуникации между устройствами)
 export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 echo "ROS_DOMAIN_ID установлен в: $ROS_DOMAIN_ID"
 
-# Разрешение локальному root доступ к X-серверу для отображения rviz2
+# Если нужна графика (X11) - раскомментируйте эти строки
 xhost +local:root >/dev/null 2>&1
 
 echo "Запуск контейнера '$CONTAINER_NAME'..."
@@ -27,41 +40,35 @@ DOCKER_ARGS=(
     --network host
     --ipc=host
     --privileged
+    --shm-size=2G
     -e ROS_DOMAIN_ID="$ROS_DOMAIN_ID"
-    -e DISPLAY="$DISPLAY"
-    -v /tmp/.X11-unix:/tmp/.X11-unix:rw
-    -v /dev:/dev
-    # Монтирование исходников позволяет редактировать код на хосте и пересобирать его внутри контейнера
-    -v "$PWD/src":/surfexunit_ws/src:rw
+    -e DISPLAY="$DISPLAY"                    # Раскомментируйте, если нужна графика
+    -v /tmp/.X11-unix:/tmp/.X11-unix:rw      # Раскомментируйте, если нужна графика
+    -v "$PWD/src":/ros2_ws/src:rw
+    --group-add dialout
 )
 
-# Добавление поддержки GPU в зависимости от архитектуры
+# === Явный проброс USB-устройств ===
+DEV_LIDAR=$(get_real_device ttyLidar) && DOCKER_ARGS+=(--device="${DEV_LIDAR}:/dev/ttyLidar")
+DEV_ESP1=$(get_real_device ttyESP1)   && DOCKER_ARGS+=(--device="${DEV_ESP1}:/dev/ttyESP1")
+DEV_ESP2=$(get_real_device ttyESP2)   && DOCKER_ARGS+=(--device="${DEV_ESP2}:/dev/ttyESP2")
+DEV_IMU=$(get_real_device ttyIMU)     && DOCKER_ARGS+=(--device="${DEV_IMU}:/dev/ttyIMU")
+
+# Для RealSense D435 критически важен доступ к USB-шине (librealsense использует libusb)
+DOCKER_ARGS+=(--device=/dev/bus/usb:/dev/bus/usb)
+
+# === Поддержка GPU ===
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ]; then
-    # Jetson (L4T) - используем NVIDIA Container Runtime
     DOCKER_ARGS+=(--runtime nvidia)
-    echo "Обнаружен Jetson. Используем --runtime nvidia для доступа к GPU."
+    echo "🚀 Jetson: используем --runtime nvidia для доступа к GPU."
 elif command -v nvidia-smi >/dev/null 2>&1; then
-    # Мини-ПК с NVIDIA GPU - используем стандартный флаг --gpus
     DOCKER_ARGS+=(--gpus all)
-    echo "Обнаружена NVIDIA GPU на x86_64. Используем --gpus all."
+    echo "🎮 x86_64: используем --gpus all."
 fi
-
-# Поскольку вы используете образ tiryoh/ros2-desktop-vnc, 
-# добавляем проброс порта для VNC (по умолчанию 6080 для веб-доступа или 5900 для VNC-клиента)
-DOCKER_ARGS+=(
-    -p 6080:6080
-    -p 5900:5900
-)
 
 docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME"
 
+echo ""
 echo "Контейнер '$CONTAINER_NAME' успешно запущен."
-echo ""
-echo "========================================="
-echo "ДОСТУП К ГРАФИЧЕСКОМУ ИНТЕРФЕЙСУ (VNC):"
-echo "Веб-браузер: http://$(hostname -I | awk '{print $1}'):6080"
-echo "VNC-клиент:  $(hostname -I | awk '{print $1}'):5900"
-echo "========================================="
-echo ""
-echo "Используйте './exec.sh' для открытия нового окна терминала внутри контейнера."
+echo "Используйте './exec.sh' (или './new_window_cont.sh') для открытия нового окна терминала внутри контейнера."

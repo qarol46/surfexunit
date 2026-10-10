@@ -11,7 +11,7 @@ class VelocityForwarderNode(Node):
         super().__init__('velocity_forwarder')
         
         # Параметры
-        self.declare_parameter('serial_port', '/dev/ttyUSB0')
+        self.declare_parameter('serial_port', '/dev/ttyESP1')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('cmd_topic', '/cmd_vel')
         
