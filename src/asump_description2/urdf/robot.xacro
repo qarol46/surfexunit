@@ -1,0 +1,419 @@
+<?xml version="1.0" ?>
+<robot name="surfex_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro" />
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.029988 -0.025095 0.220398" rpy="0 0 0"/>
+      <mass value="7.5"/>
+      <inertia ixx="30.467843" iyy="12.939223" izz="40.525852" ixy="0.000666" iyz="-0.336034" ixz="0.000112"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name=""><color rgba="0.1 0.1 0.1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="body_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="3"/>
+      <inertia ixx="30.467843" iyy="12.939223" izz="40.525852" ixy="0.000666" iyz="-0.336034" ixz="0.000112"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/body_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name=""><color rgba="1 1 1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/body_link.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="base_to_body_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="body_link"/>
+    <origin xyz="0.0 0.0 0.1445" rpy="0 0 0"/> 
+  </joint>
+
+  <link name="face_sensor_panel">
+    <inertial>
+      <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
+      <mass value="0.4"/>
+      <inertia ixx="0.000511" iyy="0.011306" izz="0.011176" ixy="-3e-05" iyz="-2.8e-05" ixz="1.1e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/face_sensor_panel.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name=""><color rgba="1 0.4318 0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/face_sensor_panel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="face_sensors_mount_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="face_sensor_panel"/>
+    <origin xyz="0.4625 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+    
+  <link name="face_left_us_sensor_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0437"/>
+      <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+               iyy="1.267e-5" iyz="0.0"
+               izz="1.167e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="face_left_us_sensor_joint" type="fixed">
+    <parent link="face_sensor_panel"/>
+    <child link="face_left_us_sensor_link"/>
+    <origin xyz="0.02845 0.121508 0.018" rpy="0 2.0944 0"/>
+  </joint>
+
+  <link name="face_right_us_sensor_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0437"/>
+      <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+               iyy="1.267e-5" iyz="0.0"
+               izz="1.167e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="face_right_us_sensor_joint" type="fixed">
+    <parent link="face_sensor_panel"/>
+    <child link="face_right_us_sensor_link"/>
+    <origin xyz="0.02845 -0.121508 0.018" rpy="0 2.0944 0"/>
+  </joint>
+
+  <link name="laser">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.000577" iyy="0.000577" izz="0.00083" ixy="0.0" iyz="0.0" ixz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/lidar_link.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name=""><color rgba="0.1 0.1 0.1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/lidar_link.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="laser"/>
+    <origin xyz="0.1425 0.0 0.373" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:sensor_d435 parent="face_sensor_panel" name="face_camera" use_nominal_extrinsics="true">
+    <origin xyz="0.02 0.0 0.01" rpy="0 0 0"/>
+  </xacro:sensor_d435>
+
+  <xacro:macro name="wheel" params="prefix xyz rpy">
+    <link name="${prefix}_wheel_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.5"/>
+        <inertia ixx="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
+                 iyy="${0.5 * 0.1 * 0.1 / 2}" 
+                 izz="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
+                 ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="file://$(find asump_description2)/meshes/wheel_link.stl" scale="0.001 0.001 0.001"/>
+          </geometry>
+        <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/wheel_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel prefix="fl" xyz="0.314 0.2519 0" rpy="0 0 0"/>
+  <xacro:wheel prefix="fr" xyz="0.314 -0.2519 0" rpy="0 0 0"/>
+  <xacro:wheel prefix="rl" xyz="-0.314 0.2519 0" rpy="0 0 0"/>
+  <xacro:wheel prefix="rr" xyz="-0.314 -0.2519 0" rpy="0 0 0"/>
+
+  <xacro:macro name="ultrasonic_mount" params="prefix xyz rpy">
+    <link name="${prefix}_us_mount_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.0437"/>
+        <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+                 iyy="1.267e-5" iyz="0.0"
+                 izz="1.167e-5"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_mount.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="plastic_material"><color rgba="0.85 0.85 0.85 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_mount.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_us_mount_joint" type="fixed">
+      <parent link="body_link"/>
+      <child link="${prefix}_us_mount_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="${prefix}_us_sensor_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.0437"/>
+        <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+                 iyy="1.267e-5" iyz="0.0"
+                 izz="1.167e-5"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_us_sensor_joint" type="fixed">
+      <parent link="${prefix}_us_mount_link"/>
+      <child link="${prefix}_us_sensor_link"/>
+      <origin xyz="0.02845 0 0.018" rpy="0 2.0944 0"/>
+    </joint>
+
+  </xacro:macro>
+
+  <xacro:ultrasonic_mount prefix="left1" xyz="0.2615 0.24 0" rpy="0 0 1.5078" />
+  <xacro:ultrasonic_mount prefix="left2" xyz="-0.2995 0.24 0" rpy="0 0 1.5078" />
+  <xacro:ultrasonic_mount prefix="right1" xyz="0.2615 -0.24 0" rpy="0 0 -1.5078" />
+  <xacro:ultrasonic_mount prefix="right2" xyz="-0.2995 -0.24 0" rpy="0 0 -1.5078" />
+
+  <xacro:macro name="ultrasonic_mount_down" params="prefix xyz rpy">
+    <link name="${prefix}_us_mount_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.0437"/>
+        <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+                 iyy="1.267e-5" iyz="0.0"
+                 izz="1.167e-5"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_mount_down.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="plastic_material"><color rgba="0.85 0.85 0.85 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_mount_down.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_us_mount_joint" type="fixed">
+      <parent link="body_link"/>
+      <child link="${prefix}_us_mount_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="${prefix}_us_sensor_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.0437"/>
+        <inertia ixx="1.591e-5" ixy="0.0" ixz="-1.311e-6"
+                 iyy="1.267e-5" iyz="0.0"
+                 izz="1.167e-5"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="file://$(find asump_description2)/meshes/ultrasonic_sensor.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_us_sensor_joint" type="fixed">
+      <parent link="${prefix}_us_mount_link"/>
+      <child link="${prefix}_us_sensor_link"/>
+      <origin xyz="-0.022453 0 -0.028" rpy="0 4.18879 0"/>
+    </joint>
+
+  </xacro:macro>
+
+  <xacro:ultrasonic_mount_down prefix="_back_left" xyz="-0.36 0.125 -0.03" rpy="0 0 0" />
+  <xacro:ultrasonic_mount_down prefix="_back_right" xyz="-0.36 -0.125 -0.03" rpy="0 0 0" />
+
+  <link name="back_sensor_panel">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.4"/>
+      <inertia ixx="0.000511" iyy="0.011306" izz="0.011176" ixy="-3e-05" iyz="-2.8e-05" ixz="1.1e-05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/back_sensor_panel.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name=""><color rgba="1 0.4318 0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="file://$(find asump_description2)/meshes/back_sensor_panel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="back_sensors_mount_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="back_sensor_panel"/>
+    <origin xyz="-0.3925 0.0 0.298" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:sensor_d435 parent="back_sensor_panel" name="back_camera" use_nominal_extrinsics="true">
+    <origin xyz="-0.005 0 0.01" rpy="0 0 3.1415"/>
+  </xacro:sensor_d435>
+
+  <link name="cam_left_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.020"/>
+      <inertia ixx="1.0e-6" ixy="0.0" ixz="0.0"
+               iyy="5.4167e-7" iyz="0.0"
+               izz="5.4167e-7"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+      <geometry>
+        <cylinder radius="0.010" length="0.005"/>
+      </geometry>
+      <material name="camera_material">
+        <color rgba="0.15 0.15 0.18 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+      <geometry>
+        <cylinder radius="0.010" length="0.005"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="cam_left_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="cam_left_link"/>
+    <origin xyz="-0.2925 0.275 0.273" rpy="0 0 1.5708"/>
+  </joint>
+
+ <link name="cam_right_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.020"/>
+      <inertia ixx="1.0e-6" ixy="0.0" ixz="0.0"
+               iyy="5.4167e-7" iyz="0.0"
+               izz="5.4167e-7"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+      <geometry>
+        <cylinder radius="0.010" length="0.005"/>
+      </geometry>
+      <material name="camera_material">
+        <color rgba="0.15 0.15 0.18 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+      <geometry>
+        <cylinder radius="0.010" length="0.005"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="cam_right_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="cam_right_link"/>
+    <origin xyz="-0.2925 -0.275 0.273" rpy="0 0 1.5708"/>
+  </joint>
+
+</robot>
