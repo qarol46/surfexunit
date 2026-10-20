@@ -1,0 +1,29 @@
+# Игнорировать папку build и её содержимое
+build/
+
+# Игнорировать файлы сборки CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeSystem.cmake
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+CTestConfiguration.ini
+*.o
+*.so
+*.a
+
+# Игнорировать логи и временные файлы
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+
+# Игнорировать файлы установки
+install_manifest.txt
+ament_cmake_uninstall_target.cmake
+
+# Игнорировать файлы IDE (если используете)
+.vscode/
+.idea/

@@ -5,12 +5,13 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV ROS_DISTRO=humble
 
+# Исправление GPG-ключа ROS
 RUN mkdir -p /usr/share/keyrings && \
     curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2.list
 
-# Установка системных и ROS2 зависимостей, включая пакеты для Intel RealSense
+# 1. Установка основных системных и ROS2 зависимостей
 RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     python3-rosdep \
@@ -32,8 +33,30 @@ RUN apt-get update && apt-get install -y \
     libyaml-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# 2. Установка python3-serial
 RUN apt-get update && apt-get install -y \
     python3-serial \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. Установка Foxglove и базовых интерфейсов
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-foxglove-bridge \
+    ros-humble-rcl-interfaces \
+    ros-humble-std-srvs \
+    ros-humble-rosidl-default-runtime \
+    && rm -rf /var/lib/apt/lists/*
+    
+# 4. Установка image_transport и topic_tools (для throttle и сжатия)
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-image-transport \
+    ros-${ROS_DISTRO}-image-transport-plugins \
+    ros-${ROS_DISTRO}-topic-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# 5. Установка libserial и imu-tools
+RUN apt-get update && apt-get install -y \
+    libserial-dev \
+    ros-${ROS_DISTRO}-imu-tools \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rosdep init || true
@@ -44,16 +67,23 @@ WORKDIR ${WS_DIR}
 
 COPY src/ src/
 
-# rosdep установит системные зависимости для вашего кода. 
-# Он проигнорирует отсутствие ros-humble-realsense2-camera в apt, 
-# так как мы соберем его из исходников на следующем шаге.
+# rosdep установит системные зависимости для вашего кода
 RUN rosdep install -i --from-path src --rosdistro ${ROS_DISTRO} -y || true
 
-# Сборка workspace (здесь соберется и realsense-ros, если он лежит в папке src/)
+# Этап 1: Собираем пакет serial первым (игнорируем ошибку, если пакета нет)
 RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    colcon build --symlink-install"
+    colcon build --packages-select serial --parallel-workers 2 --symlink-install || true"
+
+# Этап 2: Подгружаем собранный serial и собираем все остальные пакеты
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    source ${WS_DIR}/install/setup.bash && \
+    colcon build --packages-skip serial --parallel-workers 2 --symlink-install"
 
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
 RUN echo "source ${WS_DIR}/install/setup.bash" >> /root/.bashrc
 
-CMD ["/bin/bash"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+#ENTRYPOINT ["/entrypoint.sh"]
+CMD ["entrypoint.sh"]
