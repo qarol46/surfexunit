@@ -20,8 +20,8 @@ class VelocityForwarderNode(Node):
         
         self.declare_parameter('wheel_radius', 0.05)
         self.declare_parameter('wheel_base', 0.30)
-        self.declare_parameter('wheel_left_name', 'left_wheel_joint')
-        self.declare_parameter('wheel_right_name', 'right_wheel_joint')
+        self.declare_parameter('wheel_left_name', 'fl_wheel_joint')
+        self.declare_parameter('wheel_right_name', 'fr_wheel_joint')
         self.declare_parameter('joint_state_rate', 50.0)
         
         self.declare_parameter('aux_motor_service_name', 'set_aux_motor')

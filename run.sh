@@ -81,6 +81,12 @@ DEV_IMU=$(get_real_device ttyIMU)     && DOCKER_ARGS+=(--device="${DEV_IMU}:/dev
 # Для RealSense D435
 DOCKER_ARGS+=(--device=/dev/bus/usb:/dev/bus/usb)
 
+# 1. Проброс сокета демона Argus (ОБЯЗАТЕЛЬНО для nvarguscamerasrc)
+DOCKER_ARGS+=(-v /tmp/argus_socket:/tmp/argus_socket)
+
+# 2. Явный проброс видеоустройств V4L2 (на всякий случай)
+DOCKER_ARGS+=(--device=/dev/video0 --device=/dev/video1)
+
 # === Поддержка GPU ===
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ]; then

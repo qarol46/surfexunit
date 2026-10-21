@@ -17,13 +17,13 @@ def generate_launch_description():
     
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='true',
+        default_value='false',
         description='Use simulation (Gazebo) clock if true'
     )
     
     use_rviz_arg = DeclareLaunchArgument(
         'use_rviz',
-        default_value='true',
+        default_value='false',
         description='Start RViz2 automatically'
     )
 
@@ -35,15 +35,15 @@ def generate_launch_description():
         parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]
     )
 
-    ekf_node = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
-        output='screen',
-        parameters=[
-            ekf_config
-        ],
-    )
+    # ekf_node = Node(
+    #     package='robot_localization',
+    #     executable='ekf_node',
+    #     name='ekf_filter_node',
+    #     output='screen',
+    #     parameters=[
+    #         ekf_config
+    #     ],
+    # )
 
     rgbd_mapper_node = Node(
         package='asump_localization',
@@ -87,8 +87,8 @@ def generate_launch_description():
         use_sim_time_arg,
         use_rviz_arg,
         lidar_odometry_node,
-        ekf_node,
+        #ekf_node,
         rgbd_mapper_node,
         slam_toolbox_launch,
-        rviz_node
+        #rviz_node
     ])

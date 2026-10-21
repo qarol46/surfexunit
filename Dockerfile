@@ -2,7 +2,7 @@ ARG BASE_IMAGE=tiryoh/ros2-desktop-vnc:humble-arm64-20230129T1546
 FROM ${BASE_IMAGE}
 
 ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV NVIDIA_DRIVER_CAPABILITIES=all
 ENV ROS_DISTRO=humble
 
 # Исправление GPG-ключа ROS
@@ -59,6 +59,26 @@ RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-imu-tools \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    python3-opencv \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    v4l-utils \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-message-filters \
+    ros-${ROS_DISTRO}-cv-bridge \
+    && rm -rf /var/lib/apt/lists/*
+    
 RUN rosdep init || true
 RUN rosdep update
 

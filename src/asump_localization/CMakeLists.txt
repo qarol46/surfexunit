@@ -33,6 +33,8 @@ find_package(PCL REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(message_filters REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(yaml-cpp REQUIRED) 
 find_package(rosidl_default_generators REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -97,6 +99,9 @@ ament_target_dependencies(rgbd_mapper_node
   tf2_sensor_msgs
   pcl_conversions
   std_srvs
+  sensor_msgs
+  message_filters
+  cv_bridge
 )
 
 add_executable(pose_initializer_node src/pose_initializer.cpp)
