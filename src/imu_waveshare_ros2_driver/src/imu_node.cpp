@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
      * @param Cmd_ReportTag Feature subscription tag
      */
 
-    Cmd_12(5, 255, 0,  0, 2, 10 0, 1, 3, 5, 0x007f); // 1.Set parameters
+    Cmd_12(5, 255, 0,  0, 2, 100, 1, 3, 5, 0x007f); // 1.Set parameters
     Cmd_03();//2.Wake up sensor
     Cmd_19();//3.Enable active data reporting
     Cmd_05();//4.Z axis angle reset to zero

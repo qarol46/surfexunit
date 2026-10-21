@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'velocity_forward_node = asump_control.asump_control:main',
+            'asump_control_node = asump_control.asump_control:main',
             'lidar_transform_node = asump_control.lidar_transform_node:main',
         ],
     },
