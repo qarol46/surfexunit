@@ -47,7 +47,7 @@ def generate_launch_description():
     use_rviz_arg = LaunchConfiguration('use_rviz', default='true')
 
     asump_sim_pkg = get_package_share_directory('asump_sim')
-    asump_description_pkg = get_package_share_directory('asump_description')
+    asump_description_pkg = get_package_share_directory('asump_description2')
     
     world_path = os.path.join(asump_sim_pkg, 'worlds', 'warehouse.sdf')
     rviz_config = os.path.join(asump_sim_pkg, 'config', 'default.rviz')

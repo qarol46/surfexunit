@@ -100,7 +100,7 @@
   <joint name="face_left_us_sensor_joint" type="fixed">
     <parent link="face_sensor_panel"/>
     <child link="face_left_us_sensor_link"/>
-    <origin xyz="0.02845 0.121508 0.018" rpy="0 2.0944 0"/>
+    <origin xyz="0.02845 0.121508 0.018" rpy="0 0.5236 0"/>
   </joint>
 
   <link name="face_right_us_sensor_link">
@@ -129,7 +129,7 @@
   <joint name="face_right_us_sensor_joint" type="fixed">
     <parent link="face_sensor_panel"/>
     <child link="face_right_us_sensor_link"/>
-    <origin xyz="0.02845 -0.121508 0.018" rpy="0 2.0944 0"/>
+    <origin xyz="0.02845 -0.121508 0.018" rpy="0 0.5236 0"/>
   </joint>
 
   <link name="laser">
@@ -253,7 +253,7 @@
     <joint name="${prefix}_us_sensor_joint" type="fixed">
       <parent link="${prefix}_us_mount_link"/>
       <child link="${prefix}_us_sensor_link"/>
-      <origin xyz="0.02845 0 0.018" rpy="0 2.0944 0"/>
+      <origin xyz="0.02845 0 0.018" rpy="0 0.5236 0"/>
     </joint>
 
   </xacro:macro>
@@ -319,13 +319,13 @@
     <joint name="${prefix}_us_sensor_joint" type="fixed">
       <parent link="${prefix}_us_mount_link"/>
       <child link="${prefix}_us_sensor_link"/>
-      <origin xyz="-0.022453 0 -0.028" rpy="0 4.18879 0"/>
+      <origin xyz="-0.022453 0 -0.028" rpy="0 2.0944 0"/>
     </joint>
 
   </xacro:macro>
 
-  <xacro:ultrasonic_mount_down prefix="_back_left" xyz="-0.36 0.125 -0.03" rpy="0 0 0" />
-  <xacro:ultrasonic_mount_down prefix="_back_right" xyz="-0.36 -0.125 -0.03" rpy="0 0 0" />
+  <xacro:ultrasonic_mount_down prefix="back_left" xyz="-0.36 0.125 -0.03" rpy="0 0 0" />
+  <xacro:ultrasonic_mount_down prefix="back_right" xyz="-0.36 -0.125 -0.03" rpy="0 0 0" />
 
   <link name="back_sensor_panel">
     <inertial>
@@ -416,4 +416,216 @@
     <origin xyz="-0.2925 -0.275 0.273" rpy="0 0 1.5708"/>
   </joint>
 
+  <!-- ========================================== -->
+  <!-- GAZEBO SENSOR PLUGINS (ROS 2 Jazzy / Harmonic) -->
+  <!-- ========================================== -->
+
+  <!-- 1. LiDAR (laser) -->
+  <gazebo reference="laser">
+    <sensor name="lidar_sensor" type="gpu_lidar">
+      <topic>/scan</topic>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.1</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+    </sensor>
+  </gazebo>
+
+  <link name="asump0/base_link/lidar_sensor"/>
+
+  <joint name="gz_lidar_joint" type="fixed">
+    <parent link="laser"/>
+    <child link="asump0/base_link/lidar_sensor"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 2. Face Ultrasonic Sensors -->
+  <gazebo reference="face_left_us_sensor_link">
+    <sensor type="ray" name="face_left_us_sensor">
+      <topic>face_left_us/scan</topic>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>1</samples>
+            <min_angle>-0.05</min_angle>
+            <max_angle>0.05</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.02</min>
+          <max>4.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="face_right_us_sensor_link">
+    <sensor type="ray" name="face_right_us_sensor">
+      <topic>face_right_us/scan</topic>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>1</samples>
+            <min_angle>-0.05</min_angle>
+            <max_angle>0.05</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.02</min>
+          <max>4.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <!-- 3. Side Ultrasonic Sensors (Macro-like expansion for clarity) -->
+  <xacro:macro name="gazebo_us_sensor" params="link_name topic_name">
+    <gazebo reference="${link_name}">
+      <sensor type="ray" name="${topic_name}_sensor">
+        <topic>${topic_name}/scan</topic>
+        <update_rate>10</update_rate>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1</samples>
+              <min_angle>-0.05</min_angle>
+              <max_angle>0.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.02</min>
+            <max>4.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </ray>
+        <always_on>true</always_on>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:gazebo_us_sensor link_name="left1_us_sensor_link" topic_name="left1_us" />
+  <xacro:gazebo_us_sensor link_name="left2_us_sensor_link" topic_name="left2_us" />
+  <xacro:gazebo_us_sensor link_name="right1_us_sensor_link" topic_name="right1_us" />
+  <xacro:gazebo_us_sensor link_name="right2_us_sensor_link" topic_name="right2_us" />
+  <xacro:gazebo_us_sensor link_name="_back_left_us_sensor_link" topic_name="back_left_us" />
+  <xacro:gazebo_us_sensor link_name="_back_right_us_sensor_link" topic_name="back_right_us" />
+
+  <!-- 4. Face RealSense D435 (Color + Depth) -->
+  <gazebo reference="face_camera_color_frame">
+    <sensor type="camera" name="face_camera_color">
+      <topic>face_camera/color/image_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.204</horizontal_fov> <!-- ~69 градусов для D435 -->
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="face_camera_depth_frame">
+    <sensor type="depth_camera" name="face_camera_depth">
+      <topic>face_camera/depth/image_rect_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R_FLOAT32</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <!-- 5. Back RealSense D435 (Color + Depth) -->
+  <gazebo reference="back_camera_color_frame">
+    <sensor type="camera" name="back_camera_color">
+      <topic>back_camera/color/image_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="back_camera_depth_frame">
+    <sensor type="depth_camera" name="back_camera_depth">
+      <topic>back_camera/depth/image_rect_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R_FLOAT32</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <!-- 6. Side Regular RGB Cameras -->
+  <gazebo reference="cam_left_link">
+    <sensor type="camera" name="cam_left_sensor">
+      <topic>cam_left/image_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov> <!-- 60 градусов -->
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="cam_right_link">
+    <sensor type="camera" name="cam_right_sensor">
+      <topic>cam_right/image_raw</topic>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
 </robot>
