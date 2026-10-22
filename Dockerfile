@@ -77,6 +77,8 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-message-filters \
     ros-${ROS_DISTRO}-cv-bridge \
+    python3-flask \
+    python3-flask-cors \
     && rm -rf /var/lib/apt/lists/*
     
 RUN rosdep init || true

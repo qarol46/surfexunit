@@ -32,9 +32,14 @@ xhost +local:root >/dev/null 2>&1
 # Применение udev правил для LiDAR
 LIDAR_DIR="src/sllidar_ros2"
 if [ -d "$LIDAR_DIR" ]; then
-    echo "Применение udev правил для LiDAR..."
-    (cd "$LIDAR_DIR" && sudo bash scripts/create_udev_rules.sh)
-    echo "udev правила применены."
+    # Проверяем, существуют ли уже правила для sllidar или rplidar
+    if ls /etc/udev/rules.d/*sllidar*.rules /etc/udev/rules.d/*rplidar*.rules 1>/dev/null 2>&1; then
+        echo "udev правила для LiDAR уже установлены. Пропускаем."
+    else
+        echo "Применение udev правил для LiDAR (потребуется пароль один раз)..."
+        (cd "$LIDAR_DIR" && sudo bash scripts/create_udev_rules.sh)
+        echo "udev правила применены."
+    fi
 else
     echo "Директория $LIDAR_DIR не найдена. Пропускаем."
 fi
@@ -104,3 +109,21 @@ echo "Контейнер '$CONTAINER_NAME' успешно запущен."
 echo "Размер /dev/shm внутри контейнера:"
 docker exec "$CONTAINER_NAME" df -h /dev/shm
 echo "Используйте './exec.sh' для входа в контейнер."
+
+# === АВТОМАТИЧЕСКИЙ ЗАПУСК ROS 2 LAUNCH ФАЙЛА ===
+ROS_DISTRO="humble"
+ROS_PACKAGE="asump_bringup"
+ROS_LAUNCH_FILE="foxglove_demo.launch.py"
+
+echo "Запуск launch-файла '$ROS_LAUNCH_FILE' в фоновом режиме внутри контейнера..."
+
+# Запускаем команду в фоне (-d), предварительно активируя окружение ROS 2 и вашего воркспейса
+docker exec -d "$CONTAINER_NAME" /bin/bash -c "
+    source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    source /ros2_ws/install/setup.bash && \
+    ros2 launch ${ROS_PACKAGE} ${ROS_LAUNCH_FILE}
+"
+
+echo "Готово!"
+echo "- Для просмотра логов запущенного launch-файла: docker logs -f $CONTAINER_NAME"
+echo "- Для входа в интерактивный терминал контейнера: ./exec.sh"

@@ -88,7 +88,7 @@ def generate_launch_description():
         use_rviz_arg,
         lidar_odometry_node,
         #ekf_node,
-        rgbd_mapper_node,
+        #rgbd_mapper_node,
         slam_toolbox_launch,
         #rviz_node
     ])
