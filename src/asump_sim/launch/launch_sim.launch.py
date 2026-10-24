@@ -23,7 +23,7 @@ def _gazebo_resource_path(context):
     
     # Добавляем путь к описанию робота (для mesh файлов)
     try:
-        desc_share = get_package_share_directory('asump_description')
+        desc_share = get_package_share_directory('asump_description2')
         bundled_paths.append(desc_share)
     except Exception:
         pass

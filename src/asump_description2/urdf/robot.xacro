@@ -2,6 +2,9 @@
 <robot name="surfex_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <xacro:include filename="$(find realsense2_description)/urdf/_d435.urdf.xacro" />
+  <xacro:include filename="gazebo_control.xacro"/>
+
+  <link name="base_footprint"/>
 
   <link name="base_link">
     <inertial>
@@ -23,6 +26,12 @@
       </geometry>
     </collision>
   </link>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0.0 0.0 0.1445" rpy="0 0 0"/> 
+  </joint>
 
   <link name="body_link">
     <inertial>
@@ -455,7 +464,7 @@
 
   <!-- 2. Face Ultrasonic Sensors -->
   <gazebo reference="face_left_us_sensor_link">
-    <sensor type="ray" name="face_left_us_sensor">
+    <sensor type="lidar" name="face_left_us_sensor">
       <topic>face_left_us/scan</topic>
       <update_rate>10</update_rate>
       <ray>
@@ -477,7 +486,7 @@
   </gazebo>
 
   <gazebo reference="face_right_us_sensor_link">
-    <sensor type="ray" name="face_right_us_sensor">
+    <sensor type="lidar" name="face_right_us_sensor">
       <topic>face_right_us/scan</topic>
       <update_rate>10</update_rate>
       <ray>
@@ -501,7 +510,7 @@
   <!-- 3. Side Ultrasonic Sensors (Macro-like expansion for clarity) -->
   <xacro:macro name="gazebo_us_sensor" params="link_name topic_name">
     <gazebo reference="${link_name}">
-      <sensor type="ray" name="${topic_name}_sensor">
+      <sensor type="lidar" name="${topic_name}_sensor">
         <topic>${topic_name}/scan</topic>
         <update_rate>10</update_rate>
         <ray>
@@ -527,8 +536,8 @@
   <xacro:gazebo_us_sensor link_name="left2_us_sensor_link" topic_name="left2_us" />
   <xacro:gazebo_us_sensor link_name="right1_us_sensor_link" topic_name="right1_us" />
   <xacro:gazebo_us_sensor link_name="right2_us_sensor_link" topic_name="right2_us" />
-  <xacro:gazebo_us_sensor link_name="_back_left_us_sensor_link" topic_name="back_left_us" />
-  <xacro:gazebo_us_sensor link_name="_back_right_us_sensor_link" topic_name="back_right_us" />
+  <xacro:gazebo_us_sensor link_name="back_left_us_sensor_link" topic_name="back_left_us" />
+  <xacro:gazebo_us_sensor link_name="back_right_us_sensor_link" topic_name="back_right_us" />
 
   <!-- 4. Face RealSense D435 (Color + Depth) -->
   <gazebo reference="face_camera_color_frame">
