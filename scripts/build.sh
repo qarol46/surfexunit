@@ -1,0 +1,1 @@
+docker build -t surfexunit_sim:jazzy .

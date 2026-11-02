@@ -3,6 +3,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
     TimerAction,
     SetEnvironmentVariable,
@@ -12,6 +13,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch.conditions import IfCondition
+from launch.substitutions import IfElseSubstitution
 
 def _gazebo_resource_path(context):
     """Собирает пути к моделям для Gazebo"""
@@ -44,7 +46,9 @@ def _gazebo_resource_path(context):
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
 
-    use_rviz_arg = LaunchConfiguration('use_rviz', default='true')
+    use_rviz_arg = LaunchConfiguration('use_rviz_arg', default='false')
+    use_foxglove = LaunchConfiguration('use_foxglove', default='true')
+    headless = LaunchConfiguration('headless', default='true')
 
     asump_sim_pkg = get_package_share_directory('asump_sim')
     asump_description_pkg = get_package_share_directory('asump_description2')
@@ -74,19 +78,37 @@ def generate_launch_description():
         }.items()
     )
     
-    # Gazebo Harmonic
-    gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            os.path.join(
-                get_package_share_directory('ros_gz_sim'),
-                'launch',
-                'gz_sim.launch.py'
-            )
-        ]),
-        launch_arguments={
-            'gz_args': world_path + ' -r',  # -r = auto-start
-        }.items()
-    )
+    # Gazebo Harmonic.
+    # headless=true — только сервер (gz sim -s), без GUI: в Docker-контейнере
+    # GUI падает из-за отсутствия OpenGL 3.3+ через XQuartz, визуализация — через RViz.
+    # DISPLAY для сервера очищаем: иначе ogre2 (нужен для камер/сенсоров) пытается
+    # рендерить через GLX -> XQuartz и падает с GLXBadFBConfig. Без DISPLAY
+    # рендеринг идёт через EGL + llvmpipe (программный, полностью headless).
+    # SetEnvironmentVariable внутри GroupAction действует только на эту группу,
+    # RViz и другие ноды DISPLAY по-прежнему получают.
+    host_display = os.environ.get('DISPLAY', '')
+    gazebo = GroupAction([
+        SetEnvironmentVariable(
+            name='DISPLAY',
+            value=IfElseSubstitution(headless, '', host_display),
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                os.path.join(
+                    get_package_share_directory('ros_gz_sim'),
+                    'launch',
+                    'gz_sim.launch.py'
+                )
+            ]),
+            launch_arguments={
+                'gz_args': IfElseSubstitution(
+                    headless,
+                    world_path + ' -r -s',   # -s = server only, без GUI
+                    world_path + ' -r',      # -r = auto-start
+                ),
+            }.items()
+        ),
+    ])
     
     # Спавн робота
     spawn_entity = Node(
@@ -155,12 +177,75 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
+    # Foxglove Bridge — визуализация через Foxglove Studio на хосте.
+    # В Docker-контейнере RViz не может создать GLX-контекст через XQuartz,
+    # поэтому основной способ смотреть сцену — Foxglove (websocket :8765).
+    foxglove_node = Node(
+        package='foxglove_bridge',
+        executable='foxglove_bridge',
+        name='foxglove_bridge',
+        output='screen',
+        condition=IfCondition(use_foxglove),
+        parameters=[{
+            'port': 8765,
+            'use_sim_time': use_sim_time,
+            # URDF робота ссылается на меши через file:///workspace/...
+            # (так требует gz sim). Разрешаем мосту отдавать такие файлы
+            # в Foxglove Studio, иначе модель робота не отобразится.
+            'asset_uri_allowlist': [
+                r'^package://(?:[\w]+/)*[\w]+\.(?:dae|fbx|glb|gltf|jpeg|jpg|mtl|obj|png|stl|tif|tiff|urdf|webp|xacro)$',
+                r'^file:///workspace/.*\.(?:dae|fbx|glb|gltf|jpeg|jpg|mtl|obj|png|stl|tif|tiff|urdf|webp)$',
+            ],
+        }],
+    )
+
+    # Статические трансформы URDF-линк -> gz-фрейм сенсора (identity).
+    # Gazebo публикует данные сенсоров в scoped-фреймах вида
+    # "asump0/base_footprint/<sensor>", которых нет в TF-дереве от
+    # robot_state_publisher. Соединяем оба дерева, чтобы данные сенсоров
+    # отображались вместе с моделью робота.
+    gz_sensor_frames = {
+        'laser': 'asump0/base_footprint/lidar_sensor',
+        'face_camera_color_frame': 'asump0/base_footprint/face_camera_color',
+        'face_camera_depth_frame': 'asump0/base_footprint/face_camera_depth',
+        'back_camera_color_frame': 'asump0/base_footprint/back_camera_color',
+        'back_camera_depth_frame': 'asump0/base_footprint/back_camera_depth',
+        'cam_left_link': 'asump0/base_footprint/cam_left_sensor',
+        'cam_right_link': 'asump0/base_footprint/cam_right_sensor',
+        'face_left_us_sensor_link': 'asump0/base_footprint/face_left_us_sensor',
+        'face_right_us_sensor_link': 'asump0/base_footprint/face_right_us_sensor',
+        'left1_us_sensor_link': 'asump0/base_footprint/left1_us_sensor',
+        'left2_us_sensor_link': 'asump0/base_footprint/left2_us_sensor',
+        'right1_us_sensor_link': 'asump0/base_footprint/right1_us_sensor',
+        'right2_us_sensor_link': 'asump0/base_footprint/right2_us_sensor',
+        'back_left_us_sensor_link': 'asump0/base_footprint/back_left_us_sensor',
+        'back_right_us_sensor_link': 'asump0/base_footprint/back_right_us_sensor',
+    }
+    gz_frame_links = [
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name=f'gz_link_{urdf_frame}',
+            arguments=[
+                '--x', '0', '--y', '0', '--z', '0',
+                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--frame-id', urdf_frame,
+                '--child-frame-id', gz_frame,
+            ],
+        )
+        for urdf_frame, gz_frame in gz_sensor_frames.items()
+    ]
+
     
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true',
                               description='Использовать симулированное время'),
         DeclareLaunchArgument('use_rviz_arg', default_value='false',
-                              description='Использовать RViz'),
+                              description='Использовать RViz (требует рабочий OpenGL/GLX; в контейнере через XQuartz не работает)'),
+        DeclareLaunchArgument('use_foxglove', default_value='true',
+                              description='Запустить foxglove_bridge на порту 8765'),
+        DeclareLaunchArgument('headless', default_value='true',
+                              description='Запуск Gazebo без GUI (только сервер)'),
         
         gz_resource_path,      # Пути к моделям
         rsp,                   # Описание робота
@@ -169,4 +254,5 @@ def generate_launch_description():
         #delayed_control_spawner,  # Контроллеры с задержкой
         ros_gz_bridge,         # Мост ROS <-> Gazebo
         rviz_node,             # RViz
+        foxglove_node,         # Foxglove Bridge
     ])

@@ -1,5 +1,14 @@
 # ROS-Gazebo topic bridge configuration
 # Загружается через ros_gz_bridge в launch_sim.launch.py
+#
+# ВАЖНО: gz_topic_name должны совпадать с <topic> сенсоров в
+# src/asump_description2/urdf/robot.xacro (Gazebo сам добавляет
+# ведущий слэш). ROS-имена выбраны стабильными — их используют ноды.
+#
+# override_frame_id: Gazebo публикует данные сенсоров в scoped-фреймах
+# вида "asump0/base_footprint/lidar_sensor", которых нет в TF-дереве
+# от robot_state_publisher. Подменяем frame_id на имена линков из URDF,
+# чтобы RViz/Foxglove могли разрешить трансформы.
 
 # Часы симуляции (обязательно)
 - ros_topic_name: "/clock"
@@ -41,6 +50,7 @@
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "laser"
 
 # IMU (Gazebo -> ROS 2)
 - ros_topic_name: "/imu/data"
@@ -50,134 +60,158 @@
   direction: "GZ_TO_ROS"
 
 # ==========================================
-# Передняя камера RealSense D435 (RGBD)
+# Передняя камера RealSense D435 (color + depth)
+# gz-топики из robot.xacro: face_camera/color/image_raw,
+# face_camera/depth/image_rect_raw (+ .../camera_info автоматически)
 # ==========================================
 - ros_topic_name: "/face_camera/image"
-  gz_topic_name: "/face_camera/image"
+  gz_topic_name: "/face_camera/color/image_raw"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
-
-- ros_topic_name: "/face_camera/depth_image"
-  gz_topic_name: "/face_camera/depth_image"
-  ros_type_name: "sensor_msgs/msg/Image"
-  gz_type_name: "gz.msgs.Image"
-  direction: "GZ_TO_ROS"
+  override_frame_id: "face_camera_color_frame"
 
 - ros_topic_name: "/face_camera/camera_info"
-  gz_topic_name: "/face_camera/camera_info"
+  gz_topic_name: "/face_camera/color/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: "GZ_TO_ROS"
+  override_frame_id: "face_camera_color_frame"
 
-- ros_topic_name: "/face_camera/points"
-  gz_topic_name: "/face_camera/points"
-  ros_type_name: "sensor_msgs/msg/PointCloud2"
-  gz_type_name: "gz.msgs.PointCloudPacked"
+- ros_topic_name: "/face_camera/depth_image"
+  gz_topic_name: "/face_camera/depth/image_rect_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
+  override_frame_id: "face_camera_depth_frame"
+
+- ros_topic_name: "/face_camera/depth_camera_info"
+  gz_topic_name: "/face_camera/depth/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: "GZ_TO_ROS"
+  override_frame_id: "face_camera_depth_frame"
 
 # ==========================================
-# Задняя камера RealSense D435 (RGBD)
+# Задняя камера RealSense D435 (color + depth)
 # ==========================================
 - ros_topic_name: "/back_camera/image"
-  gz_topic_name: "/back_camera/image"
+  gz_topic_name: "/back_camera/color/image_raw"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
-
-- ros_topic_name: "/back_camera/depth_image"
-  gz_topic_name: "/back_camera/depth_image"
-  ros_type_name: "sensor_msgs/msg/Image"
-  gz_type_name: "gz.msgs.Image"
-  direction: "GZ_TO_ROS"
+  override_frame_id: "back_camera_color_frame"
 
 - ros_topic_name: "/back_camera/camera_info"
-  gz_topic_name: "/back_camera/camera_info"
+  gz_topic_name: "/back_camera/color/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: "GZ_TO_ROS"
+  override_frame_id: "back_camera_color_frame"
 
-- ros_topic_name: "/back_camera/points"
-  gz_topic_name: "/back_camera/points"
-  ros_type_name: "sensor_msgs/msg/PointCloud2"
-  gz_type_name: "gz.msgs.PointCloudPacked"
+- ros_topic_name: "/back_camera/depth_image"
+  gz_topic_name: "/back_camera/depth/image_rect_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
+  override_frame_id: "back_camera_depth_frame"
+
+- ros_topic_name: "/back_camera/depth_camera_info"
+  gz_topic_name: "/back_camera/depth/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: "GZ_TO_ROS"
+  override_frame_id: "back_camera_depth_frame"
 
 # ==========================================
-# Боковые RGB Камеры
+# Боковые RGB камеры
+# gz-топики совпадают с xacro: cam_left/image_raw, cam_right/image_raw
 # ==========================================
 - ros_topic_name: "/cam_left/image_raw"
   gz_topic_name: "/cam_left/image_raw"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
+  override_frame_id: "cam_left_link"
 
 - ros_topic_name: "/cam_left/camera_info"
   gz_topic_name: "/cam_left/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: "GZ_TO_ROS"
+  override_frame_id: "cam_left_link"
 
 - ros_topic_name: "/cam_right/image_raw"
   gz_topic_name: "/cam_right/image_raw"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
   direction: "GZ_TO_ROS"
+  override_frame_id: "cam_right_link"
 
 - ros_topic_name: "/cam_right/camera_info"
   gz_topic_name: "/cam_right/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: "GZ_TO_ROS"
+  override_frame_id: "cam_right_link"
 
 # ==========================================
 # Ультразвуковые датчики (US Sensors)
-# Симулируются через 1-лучевой LaserScan в Gazebo Sim
+# Симулируются однолучевым lidar-сенсором (CPU) в Gazebo.
+# gz-топики из robot.xacro: <имя>_us/scan
 # ==========================================
 - ros_topic_name: "/us/face_left"
-  gz_topic_name: "/us/face_left"
+  gz_topic_name: "/face_left_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "face_left_us_sensor_link"
 
 - ros_topic_name: "/us/face_right"
-  gz_topic_name: "/us/face_right"
+  gz_topic_name: "/face_right_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "face_right_us_sensor_link"
 
 - ros_topic_name: "/us/left1"
-  gz_topic_name: "/us/left1"
+  gz_topic_name: "/left1_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "left1_us_sensor_link"
 
 - ros_topic_name: "/us/left2"
-  gz_topic_name: "/us/left2"
+  gz_topic_name: "/left2_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "left2_us_sensor_link"
 
 - ros_topic_name: "/us/right1"
-  gz_topic_name: "/us/right1"
+  gz_topic_name: "/right1_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "right1_us_sensor_link"
 
 - ros_topic_name: "/us/right2"
-  gz_topic_name: "/us/right2"
+  gz_topic_name: "/right2_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "right2_us_sensor_link"
 
 - ros_topic_name: "/us/back_left"
-  gz_topic_name: "/us/back_left"
+  gz_topic_name: "/back_left_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "back_left_us_sensor_link"
 
 - ros_topic_name: "/us/back_right"
-  gz_topic_name: "/us/back_right"
+  gz_topic_name: "/back_right_us/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
   direction: "GZ_TO_ROS"
+  override_frame_id: "back_right_us_sensor_link"
