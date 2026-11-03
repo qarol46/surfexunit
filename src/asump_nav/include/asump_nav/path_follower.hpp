@@ -100,6 +100,15 @@ private:
     double curvature_velocity_scaling_;
     double control_frequency_;
     double planner_timeout_;
+    // Параметры закона управления (раньше были зашиты в follow_path)
+    double rotate_in_place_threshold_;  // угол, выше которого разворот на месте
+    double full_speed_angle_;           // угол, до которого едем на полной скорости
+    double rotation_kp_;                // P-коэффициент разворота на месте
+    double steering_kp_;                // P-коэффициент подруливания в движении
+    double max_linear_accel_;           // ограничение линейного ускорения
+    double max_angular_accel_;          // ограничение углового ускорения (плавность)
+    bool invert_angular_;               // инверсия знака угловой скорости
+    bool use_approach_lookahead_scaling_;  // сужение lookahead у цели (точность)
     bool use_velocity_scaled_lookahead_;
     bool use_regulated_linear_velocity_scaling_;
     std::string robot_base_frame_;

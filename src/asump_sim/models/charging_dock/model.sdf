@@ -3,11 +3,42 @@
   <model name="charging_dock">
     <static>true</static>
     <link name="link">
-      <collision name="collision"><pose>0 0 0.25 0 0 0</pose><geometry><box><size>0.9 0.25 0.5</size></box></geometry></collision>
-      <visual name="base"><pose>0 0 0.12 0 0 0</pose><geometry><box><size>1.2 0.55 0.08</size></box></geometry><material><ambient>0.12 0.12 0.14 1</ambient><diffuse>0.12 0.12 0.14 1</diffuse></material></visual>
-      <visual name="back_plate"><pose>-0.45 0 0.45 0 0 0</pose><geometry><box><size>0.12 0.55 0.8</size></box></geometry><material><ambient>0.18 0.18 0.20 1</ambient><diffuse>0.18 0.18 0.20 1</diffuse></material></visual>
-      <visual name="contact_left"><pose>-0.37 -0.14 0.38 0 0 0</pose><geometry><box><size>0.025 0.09 0.20</size></box></geometry><material><ambient>0.95 0.75 0.20 1</ambient><diffuse>0.95 0.75 0.20 1</diffuse></material></visual>
-      <visual name="contact_right"><pose>-0.37 0.14 0.38 0 0 0</pose><geometry><box><size>0.025 0.09 0.20</size></box></geometry><material><ambient>0.95 0.75 0.20 1</ambient><diffuse>0.95 0.75 0.20 1</diffuse></material></visual>
+      <!-- Коллизия повторяет меш, чтобы робот мог заезжать на пандус.
+           Пандус: x 1.618..2.168 м, подъём 0 -> 0.32 м (наклон ~30 град). -->
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://charging_dock/meshes/charging_dock.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="mesh">
+        <geometry>
+          <mesh>
+            <uri>model://charging_dock/meshes/charging_dock.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material><ambient>0.25 0.25 0.28 1</ambient><diffuse>0.25 0.25 0.28 1</diffuse></material>
+      </visual>
+      <!-- ArUco-маркер 20x20 см (DICT_4X4_50, id 0) на грани башни перед спуском
+           (плоскость x=0.668 м, нормалью в +x, по центру грани: z 0.32..1.25 -> 0.785). -->
+      <visual name="aruco_marker">
+        <pose>0.6695 0 0.8 1.5708 0 1.5708</pose>
+        <geometry><plane><normal>0 0 1</normal><size>0.2 0.2</size></plane></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://charging_dock/materials/textures/aruco_4x4_50_id0.png</albedo_map>
+              <metalness>0</metalness>
+              <roughness>0.9</roughness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
       <visual name="status_light"><pose>-0.36 0 0.68 0 0 0</pose><geometry><sphere><radius>0.045</radius></sphere></geometry><material><ambient>0.0 0.8 0.2 1</ambient><diffuse>0.0 0.8 0.2 1</diffuse><emissive>0.0 0.4 0.1 1</emissive></material></visual>
     </link>
   </model>

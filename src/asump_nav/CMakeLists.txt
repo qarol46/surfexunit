@@ -18,6 +18,9 @@ find_package(tf2_sensor_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(asump_localization REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(include)
 
@@ -103,6 +106,29 @@ ament_target_dependencies(mission_executor_node
 
 install(TARGETS
   mission_executor_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+add_executable(dock_controller_node src/dock_controller_node.cpp)
+
+target_include_directories(dock_controller_node PRIVATE ${OpenCV_INCLUDE_DIRS})
+
+ament_target_dependencies(dock_controller_node
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  geometry_msgs
+  sensor_msgs
+  std_srvs
+  cv_bridge
+  tf2
+  tf2_ros
+)
+
+target_link_libraries(dock_controller_node ${OpenCV_LIBS})
+
+install(TARGETS
+  dock_controller_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

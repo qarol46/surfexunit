@@ -1,7 +1,10 @@
 <?xml version="1.0"?>
 <sdf version="1.11">
   <world name="benchmark_warehouse_medium">
-    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <!-- Шаг 4 мс вместо 1 мс: физика в 4 раза дешевле, real_time_factor не
+         проседает под нагрузкой (GUI + RViz + стек навигации). При просадке
+         RTF свободное падение и заваливание робота выглядят как "невесомость". -->
+    <physics name="4ms" type="ignored"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics>
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
@@ -32,6 +35,10 @@
 
     <include><name>shelf_medium_10</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>-3 -5 0 0 0 0</pose></include>
     <include><name>shelf_medium_11</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>4 4 0 0 0 0</pose></include>
+
+    <!-- Зарядная станция примерно в центре сцены (центр меша в x=0), в коридоре
+         между стеллажами shelf_medium_05/06, пандусом на восток (+x). -->
+    <include><name>charging_dock</name><uri>model://charging_dock</uri><pose>-1.084 -2.5 0 0 0 0</pose></include>
 
   </world>
 </sdf>

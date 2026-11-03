@@ -422,7 +422,37 @@
   <joint name="cam_right_joint" type="fixed">
     <parent link="body_link"/>
     <child link="cam_right_link"/>
-    <origin xyz="-0.2925 -0.275 0.273" rpy="0 0 1.5708"/>
+    <origin xyz="-0.2925 -0.275 0.273" rpy="0 0 -1.5708"/>
+  </joint>
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.05 0.03"/>
+      </geometry>
+      <material name="Grey">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.05 0.03"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="0.01"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="body_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
   <!-- ========================================== -->
@@ -454,17 +484,17 @@
     </sensor>
   </gazebo>
 
-  <link name="asump0/base_link/lidar_sensor"/>
+  <link name="asump0/base_footprint/lidar_sensor"/>
 
   <joint name="gz_lidar_joint" type="fixed">
     <parent link="laser"/>
-    <child link="asump0/base_link/lidar_sensor"/>
+    <child link="asump0/base_footprint/lidar_sensor"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
   <!-- 2. Face Ultrasonic Sensors -->
   <gazebo reference="face_left_us_sensor_link">
-    <sensor type="lidar" name="face_left_us_sensor">
+    <sensor type="gpu_lidar" name="face_left_us_sensor">
       <topic>face_left_us/scan</topic>
       <update_rate>10</update_rate>
       <ray>
@@ -486,7 +516,7 @@
   </gazebo>
 
   <gazebo reference="face_right_us_sensor_link">
-    <sensor type="lidar" name="face_right_us_sensor">
+    <sensor type="gpu_lidar" name="face_right_us_sensor">
       <topic>face_right_us/scan</topic>
       <update_rate>10</update_rate>
       <ray>
@@ -507,10 +537,26 @@
     </sensor>
   </gazebo>
 
+  <link name="asump0/base_footprint/face_left_us_sensor"/>
+
+  <joint name="gz_face_left_us_joint" type="fixed">
+    <parent link="face_left_us_sensor_link"/>
+    <child link="asump0/base_footprint/face_left_us_sensor"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="asump0/base_footprint/face_right_us_sensor"/>
+
+  <joint name="gz_face_right_us_joint" type="fixed">
+    <parent link="face_right_us_sensor_link"/>
+    <child link="asump0/base_footprint/face_right_us_sensor"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
   <!-- 3. Side Ultrasonic Sensors (Macro-like expansion for clarity) -->
-  <xacro:macro name="gazebo_us_sensor" params="link_name topic_name">
+  <xacro:macro name="gazebo_us_sensor" params="link_name gz_link_name topic_name">
     <gazebo reference="${link_name}">
-      <sensor type="lidar" name="${topic_name}_sensor">
+      <sensor type="gpu_lidar" name="${topic_name}_sensor">
         <topic>${topic_name}/scan</topic>
         <update_rate>10</update_rate>
         <ray>
@@ -530,14 +576,22 @@
         <always_on>true</always_on>
       </sensor>
     </gazebo>
+
+    <link name="${gz_link_name}"/>
+
+    <joint name="gz_${topic_name}_joint" type="fixed">
+      <parent link="${link_name}"/>
+      <child link="${gz_link_name}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
   </xacro:macro>
 
-  <xacro:gazebo_us_sensor link_name="left1_us_sensor_link" topic_name="left1_us" />
-  <xacro:gazebo_us_sensor link_name="left2_us_sensor_link" topic_name="left2_us" />
-  <xacro:gazebo_us_sensor link_name="right1_us_sensor_link" topic_name="right1_us" />
-  <xacro:gazebo_us_sensor link_name="right2_us_sensor_link" topic_name="right2_us" />
-  <xacro:gazebo_us_sensor link_name="back_left_us_sensor_link" topic_name="back_left_us" />
-  <xacro:gazebo_us_sensor link_name="back_right_us_sensor_link" topic_name="back_right_us" />
+  <xacro:gazebo_us_sensor link_name="left1_us_sensor_link" gz_link_name="asump0/base_footprint/left1_us_sensor" topic_name="left1_us" />
+  <xacro:gazebo_us_sensor link_name="left2_us_sensor_link" gz_link_name="asump0/base_footprint/left2_us_sensor" topic_name="left2_us" />
+  <xacro:gazebo_us_sensor link_name="right1_us_sensor_link" gz_link_name="asump0/base_footprint/right1_us_sensor" topic_name="right1_us" />
+  <xacro:gazebo_us_sensor link_name="right2_us_sensor_link" gz_link_name="asump0/base_footprint/right2_us_sensor" topic_name="right2_us" />
+  <xacro:gazebo_us_sensor link_name="back_left_us_sensor_link" gz_link_name="asump0/base_footprint/back_left_us_sensor" topic_name="back_left_us" />
+  <xacro:gazebo_us_sensor link_name="back_right_us_sensor_link" gz_link_name="asump0/base_footprint/back_right_us_sensor" topic_name="back_right_us" />
 
   <!-- 4. Face RealSense D435 (Color + Depth) -->
   <gazebo reference="face_camera_color_frame">
@@ -572,6 +626,22 @@
     </sensor>
   </gazebo>
 
+  <link name="asump0/base_footprint/face_camera_color"/>
+
+  <joint name="gz_face_camera_joint" type="fixed">
+    <parent link="face_camera_color_frame"/>
+    <child link="asump0/base_footprint/face_camera_color"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <link name="asump0/base_footprint/face_camera_depth"/>
+
+  <joint name="gz_face_camera_depth_joint" type="fixed">
+    <parent link="face_camera_depth_frame"/>
+    <child link="asump0/base_footprint/face_camera_depth"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
   <!-- 5. Back RealSense D435 (Color + Depth) -->
   <gazebo reference="back_camera_color_frame">
     <sensor type="camera" name="back_camera_color">
@@ -605,6 +675,22 @@
     </sensor>
   </gazebo>
 
+  <link name="asump0/base_footprint/back_camera_color"/>
+
+  <joint name="gz_back_camera_joint" type="fixed">
+    <parent link="back_camera_color_frame"/>
+    <child link="asump0/base_footprint/back_camera_color"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <link name="asump0/base_footprint/back_camera_depth"/>
+
+  <joint name="gz_back_camera_depth_joint" type="fixed">
+    <parent link="back_camera_depth_frame"/>
+    <child link="asump0/base_footprint/back_camera_depth"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
   <!-- 6. Side Regular RGB Cameras -->
   <gazebo reference="cam_left_link">
     <sensor type="camera" name="cam_left_sensor">
@@ -622,6 +708,14 @@
     </sensor>
   </gazebo>
 
+  <link name="asump0/base_footprint/cam_left_sensor"/>
+
+  <joint name="gz_cam_left_joint" type="fixed">
+    <parent link="cam_left_link"/>
+    <child link="asump0/base_footprint/cam_left_sensor"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
   <gazebo reference="cam_right_link">
     <sensor type="camera" name="cam_right_sensor">
       <topic>cam_right/image_raw</topic>
@@ -637,4 +731,41 @@
       <always_on>true</always_on>
     </sensor>
   </gazebo>
+
+  <link name="asump0/base_footprint/cam_right_sensor"/>
+
+  <joint name="gz_cam_right_joint" type="fixed">
+    <parent link="cam_right_link"/>
+    <child link="asump0/base_footprint/cam_right_sensor"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><stddev>0.001</stddev></noise></x>
+          <y><noise type="gaussian"><stddev>0.001</stddev></noise></y>
+          <z><noise type="gaussian"><stddev>0.001</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><stddev>0.01</stddev></noise></x>
+          <y><noise type="gaussian"><stddev>0.01</stddev></noise></y>
+          <z><noise type="gaussian"><stddev>0.01</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+      <topic>imu/data</topic>
+    </sensor>
+  </gazebo>
+
+
+  <link name="asump0/base_footprint/imu"/>
+
+  <joint name="gz_imu_joint" type="fixed">
+    <parent link="imu_link"/>
+    <child link="asump0/base_footprint/imu"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
 </robot>

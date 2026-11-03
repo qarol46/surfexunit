@@ -1,0 +1,51 @@
+dock_controller:
+  ros__parameters:
+    # Сервис докования (std_srvs/Trigger)
+    service_name: "dock"
+    # Action path_follower для подхода к станции
+    action_name: "navigate_to_pose"
+
+    # Топики
+    charger_pose_topic: "/zones/charger_pose"
+    image_topic: "/back_camera/image"
+    camera_info_topic: "/back_camera/camera_info"
+    us_left_topic: "/us/back_left"
+    us_right_topic: "/us/back_right"
+    cmd_vel_topic: "/cmd_vel"
+    debug_image_topic: "/dock/debug_image"
+    # Отладочная публикация точки подъезда (PoseStamped) для проверки в RViz
+    standoff_goal_topic: "/dock/standoff_goal"
+
+    # ArUco-маркер на башне станции (DICT_4X4_50)
+    marker_id: 0
+    marker_size: 0.2          # м
+    fallback_fx: 466.0        # фокус в пикселях, если нет camera_info
+
+    # Геометрия станции: от центра до начала пандуса (м) и запас перед ним
+    ramp_offset: 1.084
+    standoff_dist: 0.8
+
+    # Таймауты фазы подхода
+    charger_wait_timeout: 5.0
+    nav_server_wait_timeout: 10.0
+    nav_result_timeout: 120.0
+
+    # Серво-фаза (реверс)
+    servo_linear_vel: 0.1     # м/с, реверс
+    servo_angular_gain: 1.2   # P-коэффициент по смещению маркера в кадре
+    servo_rate: 20.0
+    servo_timeout: 60.0
+    marker_acquire_timeout: 10.0  # ожидание первого появления маркера (едем реверсом)
+    marker_lost_timeout: 2.0      # потеря маркера в процессе -> авария
+    marker_handoff_dist: 0.7      # ближе -> финальная фаза по УЗ
+
+    # Поиск маркера в начале серво-фазы: покачивание на месте,
+    # если маркер сразу не обнаружен (нужен TF fixed_frame -> base_frame)
+    base_frame: "base_footprint"
+    marker_search_enabled: true
+    marker_search_angle: 0.52        # рад (~30°) в каждую сторону от исходного курса
+    marker_search_angular_vel: 0.3   # рад/с
+    us_stop_distance: 0.3         # стоп по задним УЗ-датчикам
+    us_emergency_distance: 0.15   # аварийный стоп
+    us_wait_timeout: 3.0          # нет данных УЗ в финальной фазе -> авария
+    publish_debug_image: true

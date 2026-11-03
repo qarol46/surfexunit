@@ -44,7 +44,7 @@ def _gazebo_resource_path(context):
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
 
-    use_rviz_arg = LaunchConfiguration('use_rviz', default='true')
+    use_rviz_arg = LaunchConfiguration('use_rviz_arg', default='true')
 
     asump_sim_pkg = get_package_share_directory('asump_sim')
     asump_description_pkg = get_package_share_directory('asump_description2')
@@ -88,17 +88,18 @@ def generate_launch_description():
         }.items()
     )
     
-    # Спавн робота
+    # Спавн робота рядом с зарядной станцией (центр станции (0, -2.5),
+    # расстояние ~2.24 м < 2.5 м), лицом к станции
     spawn_entity = Node(
         package='ros_gz_sim',
         executable='create',
         arguments=[
             '-topic', 'robot_description',
             '-name', 'asump0',
-            '-x', '2.85',
-            '-y', '-0.2',
+            '-x', '2.0',
+            '-y', '-1.5',
             '-z', '0.3',
-            '-Y', '1.2',
+            '-Y', '-2.68',
             '-allow_renaming', 'false'
         ],
         output='screen'
@@ -159,7 +160,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='true',
                               description='Использовать симулированное время'),
-        DeclareLaunchArgument('use_rviz_arg', default_value='false',
+        DeclareLaunchArgument('use_rviz_arg', default_value='true',
                               description='Использовать RViz'),
         
         gz_resource_path,      # Пути к моделям

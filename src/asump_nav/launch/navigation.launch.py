@@ -25,12 +25,12 @@ def generate_launch_description():
             output='screen',
         ),
 
-        Node(
-            package='asump_nav',
-            executable='obstacle_safety_gate_node',
-            name='obstacle_safety',
-            output='screen'
-        ),
+        # Node(
+        #     package='asump_nav',
+        #     executable='obstacle_safety_gate_node',
+        #     name='obstacle_safety',
+        #     output='screen'
+        # ),
 
         Node(
             package='rviz2',

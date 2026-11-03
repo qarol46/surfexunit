@@ -104,9 +104,9 @@ def generate_launch_description():
         declare_map_yaml_cmd,
         map_tools_launch,
         lidar_odometry_node,
-        scan_matcher_node,
+        #scan_matcher_node,
         slam_toolbox_launch,
         rviz2,
 
-        auto_init_service,  # <- здесь запускается автоввызов
+        #auto_init_service,  # <- здесь запускается автоввызов
     ])
