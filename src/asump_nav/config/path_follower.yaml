@@ -17,3 +17,18 @@ path_follower:
     robot_base_frame: "base_footprint"
     global_frame: "map"
     planner_service_name: "get_path_to_point"
+
+    # Закон управления (плавность)
+    rotate_in_place_threshold: 0.3   # угол ошибки, выше которого разворот на месте
+    full_speed_angle: 0.1            # до этого угла — полная скорость (далее smoothstep)
+    rotation_kp: 2.0                 # P-коэффициент разворота на месте
+    steering_kp: 0.5                 # добавка к pure pursuit по ошибке курса (малый!)
+    max_linear_accel: 0.4            # м/с^2, slew rate линейной скорости
+    max_angular_accel: 1.5           # рад/с^2, slew rate угловой скорости
+    # min_angular_vel = 0: без релейного управления (min>0 вместе с dead zone
+    # давал предельный цикл — коррекция курса скачком на полную скорость)
+    min_linear_vel: 0.1
+    min_angular_vel: 0.0
+    angle_dead_zone: 0.03            # рад (~2 градуса)
+    invert_angular: false
+    cmd_vel_topic: "/cmd_vel"

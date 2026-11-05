@@ -32,12 +32,22 @@ dock_controller:
 
     # Серво-фаза (реверс)
     servo_linear_vel: 0.1     # м/с, реверс
-    servo_angular_gain: 1.2   # P-коэффициент по смещению маркера в кадре
     servo_rate: 20.0
     servo_timeout: 60.0
     marker_acquire_timeout: 10.0  # ожидание первого появления маркера (едем реверсом)
     marker_lost_timeout: 2.0      # потеря маркера в процессе -> авария
     marker_handoff_dist: 0.7      # ближе -> финальная фаза по УЗ
+
+    # Выравнивание по полной позе маркера (solvePnP):
+    # omega = -servo_bearing_gain * bearing + servo_orient_gain * orient,
+    # где bearing — курс на маркер, orient — поворот его нормали
+    # относительно оси камеры (0 = камера смотрит на маркер в лоб).
+    # use_marker_pose: false -> старый закон по пиксельному смещению.
+    use_marker_pose: true
+    servo_bearing_gain: 2.0
+    servo_orient_gain: 0.8
+    servo_max_angular_vel: 0.6
+    servo_angular_gain: 1.2       # P-коэффициент fallback-закона по пикселям
 
     # Поиск маркера в начале серво-фазы: покачивание на месте,
     # если маркер сразу не обнаружен (нужен TF fixed_frame -> base_frame)
@@ -45,7 +55,15 @@ dock_controller:
     marker_search_enabled: true
     marker_search_angle: 0.52        # рад (~30°) в каждую сторону от исходного курса
     marker_search_angular_vel: 0.3   # рад/с
-    us_stop_distance: 0.3         # стоп по задним УЗ-датчикам
-    us_emergency_distance: 0.15   # аварийный стоп
+
+    # Задние УЗ смотрят вниз-назад и на ровном полу видят землю (~0.2 м).
+    # Финиш: us <= max(us_stop_distance, us_stop_ratio * baseline), где
+    # baseline — максимум показаний за фазу маркера (открытый пол).
+    us_stop_distance: 0.07        # абсолютный "пол" финиша
+    us_stop_ratio: 0.65           # доля от базовой линии
+    us_fallback_baseline: 0.22    # база, если за фазу маркера не собралась
+    us_emergency_distance: 0.08   # аварийный стоп (ниже показаний пола!)
     us_wait_timeout: 3.0          # нет данных УЗ в финальной фазе -> авария
+    # Страховка финальной фазы: максимум реверса после handoff (по TF)
+    final_max_reverse_dist: 0.8
     publish_debug_image: true

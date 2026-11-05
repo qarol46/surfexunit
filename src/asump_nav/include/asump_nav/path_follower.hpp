@@ -114,6 +114,7 @@ private:
     std::string robot_base_frame_;
     std::string global_frame_;
     std::string planner_service_name_;
+    std::string cmd_vel_topic_;
 };
 
 }  // namespace autonomous_navigation

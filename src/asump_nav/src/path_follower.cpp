@@ -19,10 +19,13 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   max_linear_vel_ = declare_parameter<double>("max_linear_vel", 1.0);
   max_angular_vel_ = declare_parameter<double>("max_angular_vel", 2.5);
 
-  // Новые параметры: минимальные скорости и мёртвая зона угла
+  // Минимальные скорости и мёртвая зона угла.
+  // min_angular_vel = 0: без релейного управления (min>0 вместе с dead zone
+  // даёт предельный цикл: любая коррекция курса — скачком на полную
+  // угловую скорость). dead zone ~2 градуса.
   min_linear_vel_ = declare_parameter<double>("min_linear_vel", 0.1);
-  min_angular_vel_ = declare_parameter<double>("min_angular_vel", 1.3);
-  angle_dead_zone_ = declare_parameter<double>("angle_dead_zone", 0.15); // ~2 градуса
+  min_angular_vel_ = declare_parameter<double>("min_angular_vel", 0.0);
+  angle_dead_zone_ = declare_parameter<double>("angle_dead_zone", 0.03);
 
   min_approach_linear_vel_ = declare_parameter<double>("min_approach_linear_vel", 0.05);
   approach_velocity_scaling_dist_ = declare_parameter<double>("approach_velocity_scaling_dist", 1.0);
@@ -43,6 +46,17 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   use_regulated_linear_velocity_scaling_ = declare_parameter<bool>(
     "use_regulated_linear_velocity_scaling", true);
 
+  // Параметры закона управления (раньше были зашиты в follow_path)
+  rotate_in_place_threshold_ =
+    declare_parameter<double>("rotate_in_place_threshold", 0.3);
+  full_speed_angle_ = declare_parameter<double>("full_speed_angle", 0.1);
+  rotation_kp_ = declare_parameter<double>("rotation_kp", 2.0);
+  steering_kp_ = declare_parameter<double>("steering_kp", 0.5);
+  max_linear_accel_ = declare_parameter<double>("max_linear_accel", 0.4);
+  max_angular_accel_ = declare_parameter<double>("max_angular_accel", 1.5);
+  invert_angular_ = declare_parameter<bool>("invert_angular", false);
+  cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
+
   robot_base_frame_ = declare_parameter<std::string>("robot_base_frame", "base_footprint");
   global_frame_ = declare_parameter<std::string>("global_frame", "map");
 
@@ -54,7 +68,7 @@ PathFollower::PathFollower(const rclcpp::NodeOptions & options)
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // ==================== cmd_vel ====================
-  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+  cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
 
   // ==================== Nav status ====================
   rclcpp::QoS nav_status_qos(10);
@@ -231,23 +245,20 @@ void PathFollower::follow_path(
   rclcpp::Rate rate(control_frequency_);
 
   double current_linear_vel = 0.0;
+  double current_angular_vel = 0.0;
+  const double dt = (control_frequency_ > 0.0) ? (1.0 / control_frequency_) : 0.05;
 
-  // === ЛОКАЛЬНЫЕ ПАРАМЕТРЫ РЕГУЛИРОВАНИЯ ===
-  const double MAX_ANGLE_BEFORE_STOP  = 0.3;   // рад (~35°)
-  const double MAX_ANGLE_FOR_FULL_SPEED = 0.1; // рад (~9°)
-  const double ROTATION_KP            = 2.5;   // коэффициент для разворота на месте
-  const double STEERING_KP            = 1.8;   // коэффициент для корректировки в движении
-  const bool   INVERT_ANGULAR         = false; // true, если робот крутится не туда
-
-  // Вычисляем актуальные ограничения на основе полей класса
+  // Актуальные ограничения на основе полей класса
   const double max_linear = std::max(0.0, max_linear_vel_);
   const double max_angular = std::max(0.0, max_angular_vel_);
   const double min_linear = std::clamp(min_linear_vel_, 0.0, max_linear);
   const double min_angular = std::clamp(min_angular_vel_, 0.0, max_angular);
   const double dead_zone = std::max(0.0, angle_dead_zone_);
+  const double rotate_thresh = std::max(0.05, rotate_in_place_threshold_);
+  const double full_speed_ang = std::clamp(full_speed_angle_, 0.0, rotate_thresh);
 
-  // Лямбда для ограничения угловой скорости с поддержкой минимума и мёртвой зоны.
-  // Убирает "провал в ноль", если ошибка больше dead_zone.
+  // Ограничение угловой скорости: мёртвая зона + насыщение.
+  // При min_angular_vel = 0 — плавный P-регулятор без релейных скачков.
   auto limit_angular = [&](double raw, double err, double dz) -> double
   {
     if (std::fabs(err) <= dz) {
@@ -265,6 +276,16 @@ void PathFollower::follow_path(
 
     const double sign_source = (abs_raw > 1e-6) ? raw : err;
     return std::copysign(abs_cmd, sign_source);
+  };
+
+  // Ограничение углового ускорения (slew rate): убирает мгновенные скачки
+  // угловой скорости при смене фаз и перепадах ошибки курса.
+  auto slew_angular = [&](double target) -> double
+  {
+    const double max_step = std::max(0.0, max_angular_accel_) * dt;
+    const double step = std::clamp(target - current_angular_vel, -max_step, max_step);
+    current_angular_vel += step;
+    return current_angular_vel;
   };
 
   while (rclcpp::ok()) {
@@ -321,11 +342,13 @@ void PathFollower::follow_path(
       double ang_err = normalize_angle(goal_yaw - current_yaw);
 
       // При довороте на цели dead_zone = 0.0, чтобы точно доехать до нужного угла.
-      cmd.angular.z = limit_angular(ang_err * ROTATION_KP, ang_err, 0.0);
+      double target = limit_angular(ang_err * rotation_kp_, ang_err, 0.0);
 
-      if (INVERT_ANGULAR) {
-        cmd.angular.z = -cmd.angular.z;
+      if (invert_angular_) {
+        target = -target;
       }
+
+      cmd.angular.z = slew_angular(target);
 
       cmd_vel_pub_->publish(cmd);
       rate.sleep();
@@ -349,17 +372,19 @@ void PathFollower::follow_path(
       angle_to_lookahead, current_yaw, angle_error);
 
     // ====== ФАЗА РАЗВОРОТА: угол слишком большой ======
-    if (std::abs(angle_error) > MAX_ANGLE_BEFORE_STOP) {
+    if (std::abs(angle_error) > rotate_thresh) {
       geometry_msgs::msg::Twist cmd;
       cmd.linear.x = 0.0;
-      cmd.angular.z = limit_angular(
-        angle_error * ROTATION_KP,
+      double target = limit_angular(
+        angle_error * rotation_kp_,
         angle_error,
         dead_zone);
 
-      if (INVERT_ANGULAR) {
-        cmd.angular.z = -cmd.angular.z;
+      if (invert_angular_) {
+        target = -target;
       }
+
+      cmd.angular.z = slew_angular(target);
 
       cmd_vel_pub_->publish(cmd);
       current_linear_vel = 0.0;
@@ -392,18 +417,12 @@ void PathFollower::follow_path(
     // Линейная скорость
     double v = compute_linear_velocity(dist_to_goal, curvature, current_linear_vel);
 
-    // Снижение скорости при большом угле
-    double angle_factor = 1.0;
-
-    if (std::abs(angle_error) > MAX_ANGLE_FOR_FULL_SPEED) {
-      angle_factor = 1.0 -
-        (std::abs(angle_error) - MAX_ANGLE_FOR_FULL_SPEED) /
-        (MAX_ANGLE_BEFORE_STOP - MAX_ANGLE_FOR_FULL_SPEED);
-
-      angle_factor = std::clamp(angle_factor, 0.0, 1.0);
-    }
-
-    v *= angle_factor;
+    // Плавное (smoothstep) снижение скорости при ошибке курса:
+    // 1.0 при |err| <= full_speed_angle, 0.0 при rotate_in_place_threshold
+    const double t = std::clamp(
+      (std::abs(angle_error) - full_speed_ang) / (rotate_thresh - full_speed_ang),
+      0.0, 1.0);
+    v *= 1.0 - t * t * (3.0 - 2.0 * t);
 
     // Применяем минимальную линейную скорость, если движение разрешено
     if (v > 0.0) {
@@ -413,30 +432,29 @@ void PathFollower::follow_path(
     v = std::clamp(v, 0.0, max_linear);
 
     // === УГЛОВАЯ СКОРОСТЬ ===
+    // Основа — pure pursuit (v * curvature даёт гладкую дугу на lookahead-
+    // точку), коррекция по углу — с малым коэффициентом, чтобы не
+    // перетягивать дугу и не давать перерегулирование.
     double omega = 0.0;
 
     if (std::abs(angle_error) > dead_zone) {
-      // Комбинируем Pure Pursuit (кривизна) и коррекцию по углу
-      double omega_pursuit = v * curvature;
-      double omega_correction = angle_error * STEERING_KP;
-
-      // Берём среднее, чтобы не было резких движений
-      omega = 0.5 * omega_pursuit + 0.5 * omega_correction;
+      omega = v * curvature + steering_kp_ * angle_error;
+      omega = limit_angular(omega, angle_error, dead_zone);
     }
 
     // Если скорость почти 0, но угол есть — доворачиваем на месте
     if (v < 0.05 && std::abs(angle_error) > dead_zone) {
       omega = limit_angular(
-        angle_error * ROTATION_KP,
+        angle_error * rotation_kp_,
         angle_error,
         dead_zone);
-    } else {
-      omega = limit_angular(omega, angle_error, dead_zone);
     }
 
-    if (INVERT_ANGULAR) {
+    if (invert_angular_) {
       omega = -omega;
     }
+
+    omega = slew_angular(omega);
 
     current_linear_vel = v;
 
@@ -490,7 +508,40 @@ geometry_msgs::msg::PoseStamped PathFollower::find_lookahead_point(
     double d = distance_2d(current.pose.position, path.poses[i].pose.position);
 
     if (d >= lookahead) {
-      return path.poses[i];
+      if (i == 0) {
+        return path.poses[i];
+      }
+      // Интерполяция вдоль сегмента [i-1, i]: точка на расстоянии ровно
+      // lookahead. Без неё lookahead-точка скачком перескакивает между
+      // узлами сетки пути -> скачки кривизны и рывки угловой скорости.
+      const auto & a = path.poses[i - 1].pose.position;
+      const auto & b = path.poses[i].pose.position;
+      const double dx = b.x - a.x;
+      const double dy = b.y - a.y;
+      const double fx = a.x - current.pose.position.x;
+      const double fy = a.y - current.pose.position.y;
+      // |a + s*(b-a) - c|^2 = lookahead^2
+      const double A = dx * dx + dy * dy;
+      const double B = 2.0 * (fx * dx + fy * dy);
+      const double C = fx * fx + fy * fy - lookahead * lookahead;
+      double s = 1.0;
+      if (A > 1e-9) {
+        const double disc = B * B - 4.0 * A * C;
+        if (disc >= 0.0) {
+          const double sq = std::sqrt(disc);
+          const double s1 = (-B - sq) / (2.0 * A);
+          const double s2 = (-B + sq) / (2.0 * A);
+          if (s2 >= 0.0 && s2 <= 1.0) {
+            s = s2;
+          } else if (s1 >= 0.0 && s1 <= 1.0) {
+            s = s1;
+          }
+        }
+      }
+      geometry_msgs::msg::PoseStamped pt = path.poses[i];
+      pt.pose.position.x = a.x + s * dx;
+      pt.pose.position.y = a.y + s * dy;
+      return pt;
     }
   }
 
@@ -524,7 +575,7 @@ double PathFollower::compute_linear_velocity(
     v = std::max(v, lower_speed);
   }
 
-  double max_accel = 0.5;
+  const double max_accel = std::max(0.0, max_linear_accel_);
   double dt = (control_frequency_ > 0.0) ? (1.0 / control_frequency_) : 0.05;
 
   double dv = v - current_vel;

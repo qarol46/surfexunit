@@ -3,9 +3,10 @@
 // Сервис std_srvs/Trigger "dock" запускает двухфазный заезд:
 //  1) подход: NavigateToPose (path_follower) в точку перед пандусом,
 //     робот встаёт задом к станции;
-//  2) серво-задание: реверс с выравниванием по ArUco-маркеру в картинке
-//     задней камеры, финальная остановка у башни по задним УЗ-датчикам
-//     (маркер вблизи становится слишком крупным и выходит из кадра).
+//  2) серво-задание: реверс с выравниванием по полной позе ArUco-маркера
+//     (solvePnP: курс на маркер + доворот параллельно его плоскости),
+//     финиш — по падению показаний задних УЗ-датчиков ниже доли от
+//     базовой линии открытого пола (маркер вблизи выходит из кадра).
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -22,6 +23,7 @@
 #include <sensor_msgs/image_encodings.hpp>
 #include <opencv2/aruco.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -85,9 +87,24 @@ public:
     marker_acquire_timeout_ = declare_parameter<double>("marker_acquire_timeout", 10.0);
     marker_lost_timeout_ = declare_parameter<double>("marker_lost_timeout", 2.0);
     marker_handoff_dist_ = declare_parameter<double>("marker_handoff_dist", 0.7);
-    us_stop_distance_ = declare_parameter<double>("us_stop_distance", 0.3);
-    us_emergency_distance_ = declare_parameter<double>("us_emergency_distance", 0.15);
+    // Выравнивание по полной позе маркера (solvePnP): курс на маркер +
+    // доворот параллельно его плоскости. false -> старый закон по пикселям.
+    use_marker_pose_ = declare_parameter<bool>("use_marker_pose", true);
+    servo_bearing_gain_ = declare_parameter<double>("servo_bearing_gain", 2.0);
+    servo_orient_gain_ = declare_parameter<double>("servo_orient_gain", 0.8);
+    servo_max_angular_vel_ = declare_parameter<double>("servo_max_angular_vel", 0.6);
+    // Задние УЗ направлены вниз-назад и на ровном полу стабильно видят землю
+    // (~0.2 м), поэтому абсолютные пороги должны быть ниже показаний пола,
+    // а финиш определяется относительно базовой линии, собранной в фазе
+    // маркера: стоп, когда us <= us_stop_ratio * baseline (луч маркера
+    // упёрся в башню/пандус). us_stop_distance — абсолютный "пол" финиша.
+    us_stop_distance_ = declare_parameter<double>("us_stop_distance", 0.07);
+    us_stop_ratio_ = declare_parameter<double>("us_stop_ratio", 0.65);
+    us_fallback_baseline_ = declare_parameter<double>("us_fallback_baseline", 0.22);
+    us_emergency_distance_ = declare_parameter<double>("us_emergency_distance", 0.08);
     us_wait_timeout_ = declare_parameter<double>("us_wait_timeout", 3.0);
+    // Страховка финальной фазы: максимум реверса после потери маркера (по TF)
+    final_max_reverse_dist_ = declare_parameter<double>("final_max_reverse_dist", 0.8);
     publish_debug_image_ = declare_parameter<bool>("publish_debug_image", true);
 
     // Поиск маркера покачиванием на месте в начале серво-фазы
@@ -134,9 +151,25 @@ public:
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       camera_info_topic_, rclcpp::QoS(10),
       [this](const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
-        if (msg->k[0] > 0.0) {
-          std::lock_guard<std::mutex> lk(mutex_);
-          fx_ = msg->k[0];
+        if (msg->k[0] <= 0.0) {
+          return;
+        }
+        std::lock_guard<std::mutex> lk(mutex_);
+        fx_ = msg->k[0];
+        if (!have_camera_info_) {
+          // Полная матрица камеры и дисторсия для solvePnP
+          camera_matrix_ = cv::Mat::eye(3, 3, CV_64F);
+          for (int i = 0; i < 9; ++i) {
+            camera_matrix_.at<double>(i / 3, i % 3) = msg->k[i];
+          }
+          dist_coeffs_ = cv::Mat::zeros(1, 5, CV_64F);
+          for (size_t i = 0; i < msg->d.size() && i < 5; ++i) {
+            dist_coeffs_.at<double>(0, static_cast<int>(i)) = msg->d[i];
+          }
+          have_camera_info_ = true;
+          RCLCPP_INFO(
+            get_logger(), "Camera info received: fx=%.1f, cx=%.1f, cy=%.1f",
+            msg->k[0], msg->k[2], msg->k[5]);
         }
       },
       sub_opts);
@@ -198,8 +231,17 @@ private:
   // Текущий yaw робота в фиксированной рамке (для отслеживания покачивания)
   bool current_yaw(const std::string & fixed_frame, double & yaw)
   {
+    double x, y;
+    return current_pose(fixed_frame, x, y, yaw);
+  }
+
+  // Текущие x, y, yaw робота в фиксированной рамке
+  bool current_pose(const std::string & fixed_frame, double & x, double & y, double & yaw)
+  {
     try {
       const auto tf = tf_buffer_->lookupTransform(fixed_frame, base_frame_, tf2::TimePointZero);
+      x = tf.transform.translation.x;
+      y = tf.transform.translation.y;
       yaw = yaw_from_quat(tf.transform.rotation);
       return true;
     } catch (const tf2::TransformException & e) {
@@ -335,6 +377,13 @@ private:
     double search_start_yaw = 0.0;
     double search_dir = 1.0;
 
+    // Базовая линия задних УЗ на открытом полу (собирается в фазе маркера)
+    double us_baseline = 0.0;
+
+    // Поза входа в финальную фазу (страховка по дистанции реверса)
+    bool have_final_start = false;
+    double final_start_x = 0.0, final_start_y = 0.0;
+
     rclcpp::Rate rate(servo_rate_);
     while (rclcpp::ok()) {
       if (now() - start > rclcpp::Duration::from_seconds(servo_timeout_)) {
@@ -349,6 +398,13 @@ private:
         return false;
       }
 
+      // Базовая линия УЗ на открытом полу: задние датчики смотрят вниз-назад
+      // и вне станции стабильно видят землю (~0.2 м). Берём максимум за фазу
+      // маркера — просадки от пандуса/башни в базу не должны попадать.
+      if (phase == Phase::MARKER && std::isfinite(us) && us < 1.0) {
+        us_baseline = std::max(us_baseline, us);
+      }
+
       // Детекция маркера на последнем кадре
       sensor_msgs::msg::Image::SharedPtr img_msg;
       double fx = fallback_fx_;
@@ -359,8 +415,13 @@ private:
       }
 
       bool detected = false;
+      bool pose_ok = false;
       double err = 0.0;
+      double bearing = 0.0;  // азимут маркера в кадре камеры, рад
+      double orient = 0.0;   // поворот нормали маркера относительно оси камеры, рад
       double marker_dist = std::numeric_limits<double>::infinity();
+      cv::Vec3d rvec, tvec;
+      cv::Mat cam_K, cam_D;
 
       if (img_msg) {
         cv::Mat gray;
@@ -398,6 +459,47 @@ private:
           err = (cx - gray.cols / 2.0) / (gray.cols / 2.0);
           marker_dist = fx * marker_size_ / px_width;
           detected = true;
+
+          // Полная поза маркера (solvePnP): даёт и азимут, и поворот
+          // нормали маркера относительно оси камеры — для выравнивания
+          // параллельно плоскости маркера, а не только по смещению в кадре.
+          if (use_marker_pose_) {
+            {
+              std::lock_guard<std::mutex> lk(mutex_);
+              if (have_camera_info_) {
+                cam_K = camera_matrix_.clone();
+                cam_D = dist_coeffs_.clone();
+              }
+            }
+            if (cam_K.empty()) {
+              // Нет camera_info: приближённая модель по fallback_fx
+              cam_K = cv::Mat::eye(3, 3, CV_64F);
+              cam_K.at<double>(0, 0) = fx;
+              cam_K.at<double>(1, 1) = fx;
+              cam_K.at<double>(0, 2) = gray.cols / 2.0;
+              cam_K.at<double>(1, 2) = gray.rows / 2.0;
+              cam_D = cv::Mat::zeros(1, 5, CV_64F);
+            }
+            const float s = static_cast<float>(marker_size_ / 2.0);
+            // Порядок точек совпадает с порядком углов detectMarkers:
+            // левый-верхний, правый-верхний, правый-нижний, левый-нижний
+            // (ось y маркера вверх, z — нормаль наружу).
+            const std::vector<cv::Point3f> obj = {
+              {-s, s, 0.0f}, {s, s, 0.0f}, {s, -s, 0.0f}, {-s, -s, 0.0f}};
+            if (cv::solvePnP(
+                  obj, c, cam_K, cam_D, rvec, tvec, false, cv::SOLVEPNP_IPPE_SQUARE)) {
+              cv::Mat R;
+              cv::Rodrigues(rvec, R);
+              // Нормаль маркера (его ось z) в системе камеры
+              const double nx = R.at<double>(0, 2);
+              const double nz = R.at<double>(2, 2);
+              bearing = std::atan2(tvec[0], tvec[2]);
+              // 0, когда камера смотрит на маркер строго в лоб (n = (0,0,-1))
+              orient = std::atan2(nx, -nz);
+              marker_dist = cv::norm(tvec);
+              pose_ok = true;
+            }
+          }
         }
 
         if (publish_debug_image_ && debug_img_pub_) {
@@ -405,6 +507,9 @@ private:
           cv::cvtColor(gray, dbg, cv::COLOR_GRAY2RGB);
           if (!ids.empty()) {
             cv::aruco::drawDetectedMarkers(dbg, corners, ids);
+          }
+          if (pose_ok) {
+            cv::drawFrameAxes(dbg, cam_K, cam_D, rvec, tvec, marker_size_ * 0.5);
           }
           auto out = cv_bridge::CvImage(
             img_msg->header, sensor_msgs::image_encodings::RGB8, dbg);
@@ -421,16 +526,35 @@ private:
           if (marker_dist <= marker_handoff_dist_) {
             phase = Phase::FINAL;
             final_phase_start = now();
+            double yaw_unused = 0.0;
+            have_final_start =
+              current_pose(fixed_frame, final_start_x, final_start_y, yaw_unused);
             RCLCPP_INFO(
               get_logger(), "Docking: marker at %.2f m, switching to final approach",
               marker_dist);
             rate.sleep();
             continue;
           }
-          // Маркер левее центра кадра (err < 0) -> нужен поворот по часовой
-          // (задняя камера смотрит назад), поэтому знак прямой.
-          cmd.linear.x = -servo_linear_vel_;
-          cmd.angular.z = servo_angular_gain_ * err;
+          if (pose_ok) {
+            // Выравнивание по полной позе маркера:
+            //  - bearing: курс на маркер (задняя камера: маркер правее в
+            //    кадре = маркер левее по борту -> корму влево, т.е. знак
+            //    bearing-члена отрицательный);
+            //  - orient: доворот параллельно плоскости маркера (0, когда
+            //    камера смотрит на маркер в лоб).
+            const double omega = -servo_bearing_gain_ * bearing +
+                                 servo_orient_gain_ * orient;
+            cmd.linear.x = -servo_linear_vel_;
+            cmd.angular.z =
+              std::clamp(omega, -servo_max_angular_vel_, servo_max_angular_vel_);
+          } else {
+            // Fallback: P-регулятор по пиксельному смещению маркера в кадре
+            // (знак тот же, что у bearing-члена: задняя камера зеркалит).
+            cmd.linear.x = -servo_linear_vel_;
+            cmd.angular.z = std::clamp(
+              -servo_angular_gain_ * err,
+              -servo_max_angular_vel_, servo_max_angular_vel_);
+          }
         } else {
           if (!ever_seen) {
             if (now() - marker_wait_start >
@@ -468,19 +592,34 @@ private:
           }
         }
       } else {  // Phase::FINAL
-        // Финиш: прямой реверс до срабатывания УЗ-датчиков о башню
+        // Финиш: прямой реверс, пока показания задних УЗ не упадут ниже
+        // доли от базовой линии открытого пола (луч упёрся в башню/пандус)
         if (std::isinf(us)) {
           if (now() - final_phase_start >
               rclcpp::Duration::from_seconds(us_wait_timeout_)) {
             message = "no rear ultrasonic data in final approach";
             return false;
           }
-        } else if (us <= us_stop_distance_) {
-          stop_robot();
-          message = "docked successfully (rear us distance " +
-                    std::to_string(us).substr(0, 4) + " m)";
-          RCLCPP_INFO(get_logger(), "Docking: %s", message.c_str());
-          return true;
+        } else {
+          const double baseline =
+            (us_baseline > 0.0) ? us_baseline : us_fallback_baseline_;
+          const double stop_thr =
+            std::max(us_stop_distance_, us_stop_ratio_ * baseline);
+          if (us <= stop_thr) {
+            stop_robot();
+            message = "docked successfully (rear us distance " +
+                      std::to_string(us).substr(0, 4) + " m)";
+            RCLCPP_INFO(get_logger(), "Docking: %s", message.c_str());
+            return true;
+          }
+        }
+        // Страховка: финиш по УЗ не сработал — ограничиваем реверс
+        double rx = 0.0, ry = 0.0, ryaw = 0.0;
+        if (have_final_start && current_pose(fixed_frame, rx, ry, ryaw) &&
+            std::hypot(rx - final_start_x, ry - final_start_y) >
+              final_max_reverse_dist_) {
+          message = "final approach overrun without us trigger";
+          return false;
         }
         cmd.linear.x = -servo_linear_vel_;
         cmd.angular.z = 0.0;
@@ -505,7 +644,10 @@ private:
   double charger_wait_timeout_, nav_server_wait_timeout_, nav_result_timeout_;
   double servo_linear_vel_, servo_angular_gain_, servo_rate_, servo_timeout_;
   double marker_acquire_timeout_, marker_lost_timeout_, marker_handoff_dist_;
-  double us_stop_distance_, us_emergency_distance_, us_wait_timeout_;
+  bool use_marker_pose_;
+  double servo_bearing_gain_, servo_orient_gain_, servo_max_angular_vel_;
+  double us_stop_distance_, us_stop_ratio_, us_fallback_baseline_;
+  double us_emergency_distance_, us_wait_timeout_, final_max_reverse_dist_;
   bool publish_debug_image_;
   std::string base_frame_;
   bool marker_search_enabled_;
@@ -531,6 +673,8 @@ private:
   bool have_charger_pose_ = false;
   sensor_msgs::msg::Image::SharedPtr last_image_;
   double fx_ = 466.0;
+  cv::Mat camera_matrix_, dist_coeffs_;
+  bool have_camera_info_ = false;
   float us_range_[2] = {std::numeric_limits<float>::infinity(),
                         std::numeric_limits<float>::infinity()};
   rclcpp::Time us_stamp_[2];
