@@ -174,21 +174,25 @@
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <mass value="0.5"/>
         <inertia ixx="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
-                 iyy="${0.5 * 0.1 * 0.1 / 2}" 
-                 izz="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
-                 ixy="0" ixz="0" iyz="0"/>
+                iyy="${0.5 * 0.1 * 0.1 / 2}" 
+                izz="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
+                ixy="0" ixz="0" iyz="0"/>
       </inertial>
+      
+      <!-- Визуальная часть остается mesh -->
       <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-          <geometry>
-            <mesh filename="file://$(find asump_description2)/meshes/wheel_link.stl" scale="0.001 0.001 0.001"/>
-          </geometry>
-        <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
-      </visual>
-      <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="file://$(find asump_description2)/meshes/wheel_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+      </visual>
+      
+      <!-- Коллизия: цилиндр развернут на 90° вокруг X, чтобы ось цилиндра совпала с осью Y link'а -->
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5078 0 0"/>
+        <geometry>
+          <cylinder radius="0.1" length="0.02"/>
         </geometry>
       </collision>
     </link>
