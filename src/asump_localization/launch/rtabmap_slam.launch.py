@@ -1,3 +1,5 @@
+import os
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
@@ -7,9 +9,12 @@ from launch_ros.actions import Node
 def launch_setup(context, *args, **kwargs):
     use_sim_time_str = LaunchConfiguration('use_sim_time').perform(context)
     use_sim_time = use_sim_time_str.lower() == 'true'
-    
+
     localization = LaunchConfiguration('localization').perform(context)
-    
+
+    asump_localization_dir = get_package_share_directory('asump_localization')
+    rviz_config_file = os.path.join(asump_localization_dir, 'config', 'demo_robot_mapping.rviz')
+
     parameters = {
         'frame_id': 'base_footprint',
         'odom_frame_id': 'odom',
@@ -25,7 +30,7 @@ def launch_setup(context, *args, **kwargs):
         'RGBD/ProximityBySpace': 'true',
         'RGBD/ProximityByTime': 'false',
         'RGBD/ProximityPathMaxNeighbors': '10',
-        'Reg/Strategy': '1',
+        'Reg/Strategy': '2',
         'Vis/MinInliers': '12',
         'RGBD/OptimizeFromGraphEnd': 'false',
         'RGBD/OptimizeMaxError': '4',
@@ -37,7 +42,7 @@ def launch_setup(context, *args, **kwargs):
         'Icp/Strategy': '0',
         'Icp/PointToPlane': 'false',
         'Icp/MaxCorrespondenceDistance': '0.15',
-        'Icp/VoxelSize': '0.05'
+        'Icp/VoxelSize': '0.05',
     }
     
     remappings = [
@@ -102,6 +107,13 @@ def launch_setup(context, *args, **kwargs):
         #     parameters=[parameters],
         #     remappings=remappings
         # ),
+
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', rviz_config_file]
+        )
     ]
 
 def generate_launch_description():
