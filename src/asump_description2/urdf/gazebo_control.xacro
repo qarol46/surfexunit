@@ -38,9 +38,7 @@
             <max_wheel_torque>2.5</max_wheel_torque>
             
             <!-- Other parameters (optional) -->
-            <odom_topic>/dev/null</odom_topic> 
-            <tf_topic>/dev/null</tf_topic>
-            <odom_publish_frequency>0</odom_publish_frequency>
+            <publish_odom>false</publish_odom>
         </plugin>
 
         <plugin

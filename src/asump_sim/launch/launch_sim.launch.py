@@ -97,9 +97,9 @@ def generate_launch_description():
             '-topic', 'robot_description',
             '-name', 'asump0',
             '-x', '2.0',
-            '-y', '-1.5',
+            '-y', '-2.1',
             '-z', '0.3',
-            '-Y', '-2.68',
+            '-Y', '-0.5',
             '-allow_renaming', 'false'
         ],
         output='screen'

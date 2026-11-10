@@ -1,0 +1,14 @@
+zones_publisher:
+  ros__parameters:
+    frame_id: map
+    publish_rate: 1.0
+
+    charging_station:
+      enabled: true
+      name: "charging_station_1"
+
+      x: -2.51
+      y: -2.5
+      yaw: 0.0
+
+      radius: 2.5
