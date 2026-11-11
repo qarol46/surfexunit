@@ -28,10 +28,10 @@ public:
   : Node("mission_planner")
   {
     // ==================== Параметры ====================
-    map_topic_ = declare_parameter<std::string>("map_topic", "map_inflated");
+    map_topic_ = declare_parameter<std::string>("map_topic", "map");
     global_frame_ = declare_parameter<std::string>("global_frame", "map");
 
-    robot_width_ = declare_parameter<double>("robot_width", 0.76);
+    robot_width_ = declare_parameter<double>("robot_width", 1.2);
     pass_overlap_ = declare_parameter<double>("pass_overlap", 0.0);
     line_spacing_ = declare_parameter<double>("line_spacing", 0.2);
     clearance_radius_ = declare_parameter<double>("clearance_radius", 0.8);

@@ -48,6 +48,12 @@ def launch_setup(context, *args, **kwargs):
         'Icp/PointToPlane': 'false',
         'Icp/MaxCorrespondenceDistance': '0.15',
         'Icp/VoxelSize': '0.05',
+
+        'Grid/RangeMax': '4.0',         # Ограничивает макс. дальность для точек сетки. Отсечет шум на краях FOV камеры.
+        'Grid/MinClusterSize': '15',    # Удаляет мелкие кластеры шума (разрозненные точки на границах видимости).
+        'Grid/RayTracing': 'true',      # Трассировка лучей для корректного очистки свободного пространства перед объектами.
+        'Grid/MinGroundHeight': '0.05', # Игнорирует точки ниже этого уровня (убирает шум от пола).
+        'Grid/MaxObstacleHeight': '1.2', # Игнорирует точки выше этого уровня (убирает шум от потолка/стен).
     }
     
     remappings = [
@@ -99,7 +105,13 @@ def launch_setup(context, *args, **kwargs):
             output='screen',
             parameters=[parameters, {
                 'Mem/IncrementalMemory': 'False',
-                'Mem/InitWMWithAllNodes': 'True'
+                'Mem/InitWMWithAllNodes': 'True',
+
+                 # === ПАРАМЕТРЫ ДЛЯ ЗАЩИТЫ ОТ ЛОЖНЫХ ПРЫЖКОВ ===
+                'RGBD/LocalRadius': '2.0',       # Было 5. Уменьшаем радиус локального поиска.
+                'Vis/MinInliers': '20',          # Было 12. Увеличиваем мин. кол-во совпавших визуальных точек.
+                'Icp/CorrespondenceRatio': '0.3',# Было 0.2. Ужесточаем требования к ICP.
+                'RGBD/OptimizeMaxError': '2.5',  # Было 4. Уменьшаем допустимую ошибку оптимизации графа.
             }],
             remappings=remappings
         ),
@@ -198,7 +210,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'localization',
-            default_value='true',
+            default_value='false',
             description='Launch in localization mode'
         ),
         OpaqueFunction(function=launch_setup)

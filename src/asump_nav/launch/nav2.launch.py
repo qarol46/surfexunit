@@ -86,6 +86,29 @@ def generate_launch_description():
                 'enable_docking': 'false'
             }.items()
         ),
+
+        Node(
+            package='asump_nav', # Укажи свой пакет, где лежит исполняемый файл
+            executable='mission_planner_node',
+            name='mission_planner',
+            output='screen',
+        ),
+
+        Node(
+            package='asump_nav',
+            executable='mission_executor_node',
+            name='mission_executor',
+            output='screen',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'action_name': 'navigate_to_pose',
+                'start_service_name': '/mission/start',
+                'waypoint_service_name': '/mission/get_waypoint',
+                'auto_start': False,
+                'retry_limit': 2,
+                'skip_unreachable': True,
+            }]
+        ),
         
         # # 5. RViz с конфигурацией для навигации
         # Node(
