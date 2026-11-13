@@ -30,20 +30,20 @@ def launch_setup(context, *args, **kwargs):
         'sync_queue_size': 10,
         'use_sim_time': use_sim_time,
         'publish_tf': True,
-        
+
         'RGBD/NeighborLinkRefining': 'true',
         'RGBD/ProximityBySpace': 'true',
         'RGBD/ProximityByTime': 'false',
         'RGBD/ProximityPathMaxNeighbors': '10',
         'Reg/Strategy': '2',
-        'Vis/MinInliers': '12',
+        'Vis/MinInliers': '20',
         'RGBD/OptimizeFromGraphEnd': 'false',
-        'RGBD/OptimizeMaxError': '4',
+        'RGBD/OptimizeMaxError': '2.5',
         'Reg/Force3DoF': 'true',
         'Grid/Sensor': '2',
         'Mem/STMSize': '30',
-        'RGBD/LocalRadius': '5',
-        'Icp/CorrespondenceRatio': '0.2',
+        'RGBD/LocalRadius': '2',
+        'Icp/CorrespondenceRatio': '0.3',
         'Icp/Strategy': '0',
         'Icp/PointToPlane': 'false',
         'Icp/MaxCorrespondenceDistance': '0.15',
@@ -54,6 +54,9 @@ def launch_setup(context, *args, **kwargs):
         'Grid/RayTracing': 'true',      # Трассировка лучей для корректного очистки свободного пространства перед объектами.
         'Grid/MinGroundHeight': '0.05', # Игнорирует точки ниже этого уровня (убирает шум от пола).
         'Grid/MaxObstacleHeight': '1.2', # Игнорирует точки выше этого уровня (убирает шум от потолка/стен).
+
+        'cloud_voxel_size': '0.2',  
+        'Grid/CellSize': '0.05',
     }
     
     remappings = [
@@ -210,7 +213,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'localization',
-            default_value='false',
+            default_value='true',
             description='Launch in localization mode'
         ),
         OpaqueFunction(function=launch_setup)

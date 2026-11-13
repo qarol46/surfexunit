@@ -88,7 +88,7 @@ def generate_launch_description():
         ),
 
         Node(
-            package='asump_nav', # Укажи свой пакет, где лежит исполняемый файл
+            package='asump_nav',
             executable='mission_planner_node',
             name='mission_planner',
             output='screen',
