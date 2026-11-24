@@ -1,44 +1,371 @@
 <?xml version="1.0"?>
 <sdf version="1.11">
-  <world name="benchmark_warehouse_medium">
-    <!-- Шаг 4 мс вместо 1 мс: физика в 4 раза дешевле, real_time_factor не
-         проседает под нагрузкой (GUI + RViz + стек навигации). При просадке
-         RTF свободное падение и заваливание робота выглядят как "невесомость". -->
-    <physics name="4ms" type="ignored"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+  <world name="benchmark_warehouse_mezzanine_zone">
+    <!-- <physics name="4ms" type="ignored"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor></physics> -->
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
-    <model name="ground_plane"><static>true</static><link name="link"><collision name="collision"><geometry><plane><normal>0 0 1</normal><size>70 70</size></plane></geometry></collision><visual name="visual"><geometry><plane><normal>0 0 1</normal><size>70 70</size></plane></geometry><material><ambient>0.55 0.55 0.58 1</ambient><diffuse>0.55 0.55 0.58 1</diffuse></material></visual></link></model>
-    <light name="sun" type="directional"><cast_shadows>true</cast_shadows><pose>0 0 12 0 0 0</pose><diffuse>0.85 0.85 0.85 1</diffuse><direction>-0.4 0.2 -0.9</direction></light>
-
-    <model name="wall_north"><static>true</static><pose>0 10 1.4 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>20.4 0.2 2.8</size></box></geometry></collision><visual name="visual"><geometry><box><size>20.4 0.2 2.8</size></box></geometry><material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual></link></model>
-    <model name="wall_south"><static>true</static><pose>0 -10 1.4 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>20.4 0.2 2.8</size></box></geometry></collision><visual name="visual"><geometry><box><size>20.4 0.2 2.8</size></box></geometry><material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual></link></model>
-    <model name="wall_east"><static>true</static><pose>10 0 1.4 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>0.2 20.0 2.8</size></box></geometry></collision><visual name="visual"><geometry><box><size>0.2 20.0 2.8</size></box></geometry><material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual></link></model>
-    <model name="wall_west"><static>true</static><pose>-10 0 1.4 0 0 0</pose><link name="link"><collision name="collision"><geometry><box><size>0.2 20.0 2.8</size></box></geometry></collision><visual name="visual"><geometry><box><size>0.2 20.0 2.8</size></box></geometry><material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual></link></model>
-
-    <include><name>shelf_medium_01</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>-7 6 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_02</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>-7 0 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_03</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>-7 -6 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_04</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>0 6 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_05</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>0 1.8 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_06</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>0 -6 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_07</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>7 6 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_08</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>7 0 0 0 0 1.5708</pose></include>
-    <include><name>shelf_medium_09</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>7 -6 0 0 0 1.5708</pose></include>
-    <include><name>pallet_medium_01</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri><pose>-4 -9 0 0 0 0.4</pose></include>
-    <include><name>pallet_medium_02</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri><pose>4 9 0 0 0 -0.2</pose></include>
     
-    <include><name>forklift_01</name><uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Forklift</uri><pose>4.5 -6 0 0 0 1.57</pose></include>
-    <include><name>forklift_02</name><uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Forklift</uri><pose>-4.5 6 0 0 0 3.14</pose></include>
+    <model name="grid">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>10 20</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>10 20</size></plane></geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Grid</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+    </model>
 
-    <include><name>shelf_medium_10</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>-3 -5 0 0 0 0</pose></include>
-    <include><name>shelf_medium_11</name><uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri><pose>4 4 0 0 0 0</pose></include>
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>10 20</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>10 20</size></plane></geometry>
+          <material>
+            <ambient>0.55 0.55 0.58 1</ambient>
+            <diffuse>0.55 0.55 0.58 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 12 0 0 0</pose>
+      <diffuse>0.85 0.85 0.85 1</diffuse>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
 
-    <!-- Зарядная станция примерно в центре сцены (центр меша в x=0), в коридоре
-         между стеллажами shelf_medium_05/06, пандусом на восток (+x). -->
-    <include><name>charging_dock</name><uri>model://charging_dock</uri><pose>-1.084 -2.5 0 0 0 0</pose></include>
+    <!-- ========================================== -->
+    <!-- СТЕНЫ ПЕРВОГО ЯРУСА -->
+    <!-- ========================================== -->
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-5.0 0.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 20.0 4.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.2 20.0 4.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="wall_east">
+      <static>true</static>
+      <pose>5.0 0.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 20.0 4.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.2 20.0 4.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0.0 -10.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>10.0 0.2 4.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>10.0 0.2 4.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0.0 10.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>10.0 0.2 4.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>10.0 0.2 4.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ========================================== -->
+    <!-- ОБЪЕКТЫ ПЕРВОГО ЯРУСА -->
+    <!-- ========================================== -->
+    <include>
+      <name>charging_dock</name>
+      <uri>model://charging_dock</uri>
+      <pose>1.5 -7.0 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>shelf_under_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <name>pallet_under_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri>
+      <pose>3.0 7.5 0 0 0 0.5</pose>
+    </include>
+
+    <include>
+      <name>shelf_right_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>-2.5 9.5 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <name>shelf_right_02</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>4.5 5.0 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>shelf_right_03</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>4.5 -5.0 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>shelf_right_04</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>-4.5 5.0 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>forklift_right_01</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Forklift</uri>
+      <pose>3.8 -9.0 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>pallet_right_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri>
+      <pose>-1.0 -3.0 0 0 0 0.3</pose>
+    </include>
+
+    <include>
+      <name>pallet_right_02</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri>
+      <pose>2.0 3.0 0 0 0 0.3</pose>
+    </include>
+
+    <!-- ========================================== -->
+    <!-- ВТОРОЙ ЯРУС (МЕЗОНИН) -->
+    <!-- ========================================== -->
+    <model name="mezzanine_floor">
+      <static>true</static>
+      <pose>0.0 5.0 2.05 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>10.0 10.0 0.1</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>10.0 10.0 0.1</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.68 1</ambient>
+            <diffuse>0.65 0.65 0.68 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    
+    <!-- ОПОРНЫЕ СТОЛБЫ МЕЗОНИНА (в цвет стен) -->
+    <!-- Столб 1: поддерживает угол возле рампы -->
+    <model name="mezzanine_pillar_01">
+      <static>true</static>
+      <pose>-4.0 0.5 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.3 0.3 2.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.3 0.3 2.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Столб 2: поддерживает дальний северо-западный угол -->
+    <model name="mezzanine_pillar_02">
+      <static>true</static>
+      <pose>4.0 0.5 1.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.3 0.3 2.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.3 0.3 2.0</size></box></geometry>
+        <material><ambient>0.82 0.82 0.84 1</ambient><diffuse>0.82 0.82 0.84 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="mezzanine_wall_south">
+      <static>true</static>
+      <pose>1.0 0.0 2.85 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>8.0 0.15 2.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>8.0 0.15 2.0</size></box></geometry>
+        <material><ambient>0.75 0.75 0.78 1</ambient><diffuse>0.75 0.75 0.78 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="ramp_to_mezzanine">
+      <static>true</static>
+      <pose>-4.0 -3.3 0.975 0.291 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>2.0 7.5 0.1</size></box></geometry>
+        </collision>
+        <visual name="ramp_base">
+          <geometry><box><size>2.0 7.5 0.1</size></box></geometry>
+          <material>
+            <ambient>0.5 0.5 0.55 0.3</ambient>
+            <diffuse>0.5 0.5 0.55 0.3</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="stairs_visual">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <visual name="step_01"><pose>-4.0 -5.993 0.046 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_02"><pose>-4.0 -5.361 0.235 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_03"><pose>-4.0 -4.729 0.424 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_04"><pose>-4.0 -4.096 0.614 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_05"><pose>-4.0 -3.464 0.803 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_06"><pose>-4.0 -2.832 0.993 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_07"><pose>-4.0 -2.200 1.182 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_08"><pose>-4.0 -1.567 1.372 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_09"><pose>-4.0 -0.935 1.561 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+        <visual name="step_10"><pose>-4.0 -0.303 1.750 0 0 0</pose><geometry><box><size>2.0 0.66 0.2</size></box></geometry><material><ambient>0.7 0.5 0.3 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material></visual>
+      </link>
+    </model>
+    
+    <model name="cardboard_box_01">
+      <static>true</static>
+      <pose>1.8 5.0 2.25 0 0 0.15</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 0.3</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 0.3</size></box></geometry>
+        <material>
+          <ambient>0.75 0.6 0.4 1</ambient>
+          <diffuse>0.75 0.6 0.4 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material></visual>
+      </link>
+    </model>
+
+    <model name="cardboard_box_02">
+      <static>true</static>
+      <pose>3.5 9.35 2.25 0 0 0.5</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 0.3</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 0.3</size></box></geometry>
+        <material>
+          <ambient>0.75 0.6 0.4 1</ambient>
+          <diffuse>0.75 0.6 0.4 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material></visual>
+      </link>
+    </model>
+
+    <model name="cardboard_box_03">
+      <static>true</static>
+      <pose>2.8 9.1 2.25 0 0 1.1</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.6 0.4 0.3</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.6 0.4 0.3</size></box></geometry>
+        <material>
+          <ambient>0.75 0.6 0.4 1</ambient>
+          <diffuse>0.75 0.6 0.4 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material></visual>
+      </link>
+    </model>
+
+    <!-- ========================================== -->
+    <!-- ЗАСТАВКА ВТОРОГО ЯРУСА (Стеллажи и погрузчик) -->
+    <!-- ========================================== -->
+    <include>
+      <name>mezzanine_shelf_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>2.5 5.0 2.0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <name>mezzanine_shelf_02</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>0.0 9.5 2.0 0 0 0</pose>
+    </include>
+
+    <include>
+      <name>mezzanine_shelf_03</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/shelf</uri>
+      <pose>0.0 0.5 2.0 0 0 0</pose>
+    </include>
+
+
+    <include>
+      <name>mezzanine_forklift_01</name>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Forklift</uri>
+      <pose>-4.0 8.0 2.0 0 0 3.1415</pose>
+    </include>
+
+    <include>
+      <name>mezzanine_pallet_01</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri>
+      <pose>4.0 8.0 2.0 0 0 -0.5</pose>
+    </include>
+
+    <include>
+      <name>mezzanine_pallet_02</name>
+      <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/pallet_box_mobile</uri>
+      <pose>4.4 9.15 2.0 0 0 1.2</pose>
+    </include>
+    
+    <!-- ========================================== -->
+    <!-- ОСВЕЩЕНИЕ ПОД МЕЗОНИНОМ -->
+    <!-- ========================================== -->
+    <light name="mezzanine_linear_light_01" type="point">
+      <pose>1.0 5.0 1.8 0 0 0</pose>
+      <diffuse>0.9 0.85 0.7 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation><range>6.0</range><linear>0.2</linear><constant>0.5</constant></attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
+    
+    <light name="mezzanine_linear_light_02" type="point">
+      <pose>3.0 5.0 1.8 0 0 0</pose>
+      <diffuse>0.9 0.85 0.7 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation><range>6.0</range><linear>0.2</linear><constant>0.5</constant></attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
+    
+    <light name="mezzanine_linear_light_03" type="point">
+      <pose>5.0 5.0 1.8 0 0 0</pose>
+      <diffuse>0.9 0.85 0.7 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation><range>6.0</range><linear>0.2</linear><constant>0.5</constant></attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
+    
+    <light name="mezzanine_linear_light_04" type="point">
+      <pose>7.0 5.0 1.8 0 0 0</pose>
+      <diffuse>0.9 0.85 0.7 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation><range>6.0</range><linear>0.2</linear><constant>0.5</constant></attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
+    
+    <light name="mezzanine_linear_light_05" type="point">
+      <pose>9.0 5.0 1.8 0 0 0</pose>
+      <diffuse>0.9 0.85 0.7 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation><range>6.0</range><linear>0.2</linear><constant>0.5</constant></attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
 
   </world>
 </sdf>

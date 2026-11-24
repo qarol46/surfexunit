@@ -1,0 +1,48 @@
+rtabmap:
+  ros__parameters:
+    # === Основные настройки ===
+    frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    use_sim_time: true
+    publish_tf: true
+
+    # === Подписки и синхронизация ===
+    subscribe_rgbd: true
+    subscribe_scan: true
+    approx_sync: true
+    sync_queue_size: 10
+
+    Grid/Sensor: 2
+    Grid/CellSize: 0.05
+    Grid/RangeMax: 4.0          # Макс. дальность для сетки (отсекает шум по краям FOV)
+    Grid/RayTracing: true       # Трассировка лучей (закрашивает пространство до препятствия белым)
+    Grid/MinClusterSize: 15     # Удаляет мелкие кластеры шума (разрозненные точки)
+    Grid/MinGroundHeight: 0.05  # Игнорирует точки ниже этого уровня (шум от пола)
+    Grid/MaxObstacleHeight: 1.2 # Игнорирует точки выше этого уровня (шум от потолка/стен)
+    
+    # === Настройки 3D-облака точек ===
+    cloud_voxel_size: 0.2       # Размер вокселя для 3D облака (камера добавляет детали сюда)
+
+    # === Настройки ICP (для лидара) ===
+    Icp/Strategy: 0
+    Icp/PointToPlane: false
+    Icp/MaxCorrespondenceDistance: 0.15
+    Icp/VoxelSize: 0.05
+    Icp/CorrespondenceRatio: 0.3
+
+    # === Настройки визуальной одометрии и замыкания петель ===
+    RGBD/NeighborLinkRefining: true
+    RGBD/ProximityBySpace: true
+    RGBD/ProximityByTime: false
+    RGBD/ProximityPathMaxNeighbors: 10
+    RGBD/LocalRadius: 2.0       # Радиус локального поиска (защита от ложных прыжков)
+    RGBD/OptimizeFromGraphEnd: false
+    RGBD/OptimizeMaxError: 2.5
+    
+    Reg/Strategy: 2             # 0=Visual, 1=ICP, 2=Visual+ICP
+    Reg/Force3DoF: true         # Принудительное 3DoF (только x, y, yaw) для наземного робота
+    
+    Vis/MinInliers: 20          # Мин. кол-во совпавших визуальных точек (защита от ложных срабатываний)
+    
+    # === Память ===
+    Mem/STMSize: 30             # Размер кратковременной памяти (Short-Term Memory)

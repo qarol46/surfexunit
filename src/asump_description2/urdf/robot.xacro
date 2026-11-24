@@ -8,9 +8,9 @@
 
   <link name="base_link">
     <inertial>
-      <origin xyz="0.029988 -0.025095 0.220398" rpy="0 0 0"/>
-      <mass value="7.5"/>
-      <inertia ixx="30.467843" iyy="12.939223" izz="40.525852" ixy="0.000666" iyz="-0.336034" ixz="0.000112"/>
+      <origin xyz="0.03 0.0 0.15" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="0.45" iyy="0.55" izz="0.65" ixy="0.0" iyz="0.0" ixz="0.0"/>
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="1.5708 0 -1.5708"/>
@@ -30,14 +30,14 @@
   <joint name="base_footprint_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
-    <origin xyz="0.0 0.0 0.1445" rpy="0 0 0"/> 
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/> 
   </joint>
 
   <link name="body_link">
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="3"/>
-      <inertia ixx="30.467843" iyy="12.939223" izz="40.525852" ixy="0.000666" iyz="-0.336034" ixz="0.000112"/>
+      <inertia ixx="0.35" iyy="0.4" izz="0.35" ixy="0.0" iyz="0.0" ixz="0.0"/>
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -173,13 +173,9 @@
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <mass value="0.5"/>
-        <inertia ixx="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
-                iyy="${0.5 * 0.1 * 0.1 / 2}" 
-                izz="${0.5 * (3 * 0.1 * 0.1 + 0.05 * 0.05) / 12}" 
-                ixy="0" ixz="0" iyz="0"/>
+        <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
       </inertial>
       
-      <!-- Визуальная часть остается mesh -->
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -188,11 +184,11 @@
         <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
       </visual>
       
-      <!-- Коллизия: цилиндр развернут на 90° вокруг X, чтобы ось цилиндра совпала с осью Y link'а -->
+      <!-- ИСПРАВЛЕНО: rpy="1.570796" (ровно 90 градусов), радиус 0.1 как в плагине -->
       <collision>
-        <origin xyz="0 0 0" rpy="1.5078 0 0"/>
+        <origin xyz="0 0 0" rpy="1.570796 0 0"/>
         <geometry>
-          <cylinder radius="0.1" length="0.02"/>
+          <cylinder radius="0.1" length="0.04"/>
         </geometry>
       </collision>
     </link>
@@ -202,6 +198,8 @@
       <child link="${prefix}_wheel_link"/>
       <origin xyz="${xyz}" rpy="${rpy}"/>
       <axis xyz="0 1 0"/>
+      <!-- ИСПРАВЛЕНО: Демпфирование позволяет колесу свободно катиться, не мешая ведущим -->
+      <dynamics damping="0.1" friction="0.1"/>
     </joint>
   </xacro:macro>
 
@@ -209,6 +207,65 @@
   <xacro:wheel prefix="fr" xyz="0.314 -0.2519 0" rpy="0 0 0"/>
   <xacro:wheel prefix="rl" xyz="-0.314 0.2519 0" rpy="0 0 0"/>
   <xacro:wheel prefix="rr" xyz="-0.314 -0.2519 0" rpy="0 0 0"/>
+
+  <!-- Левое ведущее колесо -->
+  <link name="drive_left_wheel_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.005" iyy="0.005" izz="0.005" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.1" length="0.05"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.1" length="0.05"/>
+      </geometry>
+      <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+    </visual>
+  </link>
+
+  <joint name="drive_left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="drive_left_wheel_link"/>
+    <!-- Размещаем точно по центру базы, на высоте радиуса колеса -->
+    <origin xyz="0.0 0.2519 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Правое ведущее колесо -->
+  <link name="drive_right_wheel_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.005" iyy="0.005" izz="0.005" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.1" length="0.05"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.1" length="0.05"/>
+      </geometry>
+      <material name=""><color rgba="0.2 0.2 0.2 1.0"/></material>
+    </visual>
+  </link>
+
+  <joint name="drive_right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="drive_right_wheel_link"/>
+    <origin xyz="0.0 -0.2519 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
 
   <xacro:macro name="ultrasonic_mount" params="prefix xyz rpy">
     <link name="${prefix}_us_mount_link">

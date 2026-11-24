@@ -1,0 +1,71 @@
+# Параметры RTAB-Map SLAM
+# Формат: wildcard /** применяется ко всем нодам, которым передан этот файл
+# (rtabmap, rgbd_sync и т.д.). use_sim_time задаётся в launch-файле.
+/**:
+  ros__parameters:
+    # --- Frames ---
+    frame_id: base_footprint
+    odom_frame_id: odom
+    publish_tf: true
+
+    # --- Подписки ---
+    subscribe_rgbd: true
+    subscribe_scan: true
+    # RGBDImages-интерфейс: потоки обеих камер заранее склеивает нода
+    # rgbdx_sync в единый топик rgbd_images. Напрямую rgbd_cameras=2
+    # невозможен: бинарный rtabmap_ros собран без RTABMAP_SYNC_MULTI_RGBD
+    # (иначе FATAL "Cannot synchronize more than 1 rgbd topic").
+    rgbd_cameras: 0
+    approx_sync: true
+    sync_queue_size: 20
+
+    # --- Одометрия (TF от lidar_odometry_node) ---
+    odom_tf_linear_variance: 0.001
+    odom_tf_angular_variance: 0.001
+
+    # --- RTAB-Map core ---
+    RGBD/NeighborLinkRefining: "true"
+    RGBD/ProximityBySpace: "true"
+    RGBD/ProximityByTime: "false"
+    RGBD/ProximityPathMaxNeighbors: "10"
+    RGBD/OptimizeFromGraphEnd: "false"
+    RGBD/OptimizeMaxError: "2.5"
+    RGBD/LocalRadius: "2"
+
+    # --- Мультикамерность ---
+    # Камеры смотрят в противоположные стороны и не пересекаются по FOV,
+    # поэтому эпиполярная геометрия между ними бессмысленна:
+    Vis/EstimationType: "0"      # 0 = PnP (глобальный матчинг), обязательно для multi-camera
+    Vis/CorGuessWinSize: "0"     # отключает предупреждение про локальное окно соответствий
+    Vis/MinInliers: "20"
+
+    # --- Регистрация ---
+    Reg/Strategy: "2"
+    Reg/Force3DoF: "true"
+    Icp/CorrespondenceRatio: "0.3"
+    Icp/Strategy: "0"
+    Icp/PointToPlane: "false"
+    Icp/MaxCorrespondenceDistance: "0.15"
+    Icp/VoxelSize: "0.05"
+
+    # --- Occupancy grid ---
+    # 0 = только laser scan, 1 = только камеры, 2 = оба источника.
+    # Нужный сценарий: лидар рейтрейсит свободное пространство (белое) и
+    # ставит контур, камеры добавляют препятствия вне плоскости скана -> 2.
+    Grid/Sensor: "2"
+    # ВАЖНО: RangeMax ограничивает ray tracing ОБОИХ сенсоров. Лучи лидара
+    # дальше этой дистанции НЕ помечают клетки свободными -> отсюда пустые
+    # (серые) области на карте. Ставьте под реальную дальность лидара.
+    Grid/RangeMax: "8.0"
+    # Мелкие кластеры точек (ножки стульев, провода, шум depth-камеры)
+    # отбрасываются. Если камеры теряют мелкие препятствия - уменьшайте,
+    # если появляется шум - увеличивайте.
+    Grid/MinClusterSize: "10"
+    Grid/RayTracing: "true"
+    Grid/MinGroundHeight: "0.05"
+    Grid/MaxObstacleHeight: "1.2"
+    Grid/CellSize: "0.05"
+
+    # --- Память / облако ---
+    Mem/STMSize: "30"
+    cloud_voxel_size: "0.2"

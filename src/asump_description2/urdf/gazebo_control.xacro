@@ -2,87 +2,54 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
     <gazebo>
-        <plugin
-            filename="gz-sim-diff-drive-system"
-            name="gz::sim::systems::DiffDrive">
-            <!-- Topic for the command input -->
+        <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
             <topic>/cmd_vel</topic>
-    
-            <!-- Wheel joints -->
-            <left_joint>fl_wheel_joint</left_joint>
-            <right_joint>fr_wheel_joint</right_joint>
-            <left_joint>rl_wheel_joint</left_joint>
-            <right_joint>rr_wheel_joint</right_joint>
-    
-            <!-- Wheel parameters -->
-            <wheel_separation>0.502</wheel_separation>
-            <wheel_radius>0.103</wheel_radius> 
-    
-            <!-- Control gains and limits (optional) -->
-            <max_velocity>3.0</max_velocity> 
-            <max_linear_acceleration>1</max_linear_acceleration>
-            <min_linear_acceleration>-1</min_linear_acceleration>
-            <max_angular_acceleration>2</max_angular_acceleration>
-            <min_angular_acceleration>-2</min_angular_acceleration>
-            <max_linear_velocity>0.5</max_linear_velocity>
-            <min_linear_velocity>-0.5</min_linear_velocity>
-            <max_angular_velocity>1</max_angular_velocity>
-            <min_angular_velocity>-1</min_angular_velocity>
-
-            <!-- Ограничение момента колёс. Без него плагин управляет скоростью
-                 с фактически бесконечным моментом: робот "вкручивается" в
-                 вертикальные стены и медленно кувыркается (выглядит как
-                 невесомость). 2.5 Н*м хватает для пандуса 30 град. (нужно
-                 ~1.8 Н*м на колесо при разгоне 1 м/с^2), но не хватает для
-                 подъёма по вертикальной стене (нужно >2.9 Н*м). -->
-            <max_wheel_torque>2.5</max_wheel_torque>
             
-            <!-- Other parameters (optional) -->
+            <!-- ВЕДУЩИЕ ТОЛЬКО ЦЕНТРАЛЬНЫЕ КОЛЕСА -->
+            <left_joint>drive_left_wheel_joint</left_joint>
+            <right_joint>drive_right_wheel_joint</right_joint>
+            
+            <!-- Расстояние между центральными колесами: 0.2519 * 2 = 0.5038 -->
+            <wheel_separation>0.5038</wheel_separation>
+            <!-- Радиус совпадает с мешем колеса (0.1 м по wheel_link.stl)
+                 и с collision-цилиндрами всех шести колёс -->
+            <wheel_radius>0.1</wheel_radius>
+
+            <!-- Потолки симуляции (не путать с лимитами навигации в
+                 path_follower.yaml — они ниже). Ускорения подняты, чтобы
+                 сим не был bottleneck'ом для контроллеров. -->
+            <max_linear_acceleration>3.0</max_linear_acceleration>
+            <min_linear_acceleration>-3.0</min_linear_acceleration>
+            <max_angular_acceleration>4.0</max_angular_acceleration>
+            <min_angular_acceleration>-4.0</min_angular_acceleration>
+            <max_linear_velocity>5.0</max_linear_velocity>
+            <min_linear_velocity>-5.0</min_linear_velocity>
+            <max_angular_velocity>3.0</max_angular_velocity>
+            <min_angular_velocity>-3.0</min_angular_velocity>
+            <!-- NB: gz-sim8 DiffDrive НЕ читает max_velocity/max_wheel_torque
+                 (управление по JointVelocityCmd) — эти параметры удалены. -->
             <publish_odom>false</publish_odom>
+            <publish_odom_tf>false</publish_odom_tf>
         </plugin>
 
-        <plugin
-            filename="gz-sim-joint-state-publisher-system"
-            name="gz::sim::systems::JointStatePublisher">
-            <topic>joint_states</topic> <!--from <ros><remapping> -->
+        <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+            <topic>joint_states</topic>
+            <!-- Публикуем состояния всех колес, чтобы они крутились визуально в RViz -->
             <joint_name>fl_wheel_joint</joint_name>
             <joint_name>fr_wheel_joint</joint_name>
             <joint_name>rl_wheel_joint</joint_name>
             <joint_name>rr_wheel_joint</joint_name>
+            <joint_name>drive_left_wheel_joint</joint_name>
+            <joint_name>drive_right_wheel_joint</joint_name>
         </plugin>
-    
+    </gazebo>
 
-
-      </gazebo>
-
-    <!-- Анизотропное трение колёс для skid-steer: высокое вдоль качения
-         (mu1, направление fdir1), пониженное поперёк оси колеса (mu2).
-         Иначе при развороте 4 ведущим колёсам нужно преодолеть полное
-         статическое трение о пол (десятки Н*м момента сопротивления),
-         а лимит max_wheel_torque (2.5 Н*м) этого не позволяет — колёса
-         буксуют, робот не поворачивается. fdir1 задан в системе линка:
-         ось колеса — y, направление качения — x.
-         ВАЖНО: блоки должны быть прямыми детьми <robot> — вложенные в
-         <gazebo> элементы парсер sdformat не применяет. -->
-    <gazebo reference="fl_wheel_link">
-        <mu1>1.0</mu1>
-        <mu2>0.3</mu2>
-        <fdir1>1 0 0</fdir1>
-    </gazebo>
-    <gazebo reference="fr_wheel_link">
-        <mu1>1.0</mu1>
-        <mu2>0.3</mu2>
-        <fdir1>1 0 0</fdir1>
-    </gazebo>
-    <gazebo reference="rl_wheel_link">
-        <mu1>1.0</mu1>
-        <mu2>0.3</mu2>
-        <fdir1>1 0 0</fdir1>
-    </gazebo>
-    <gazebo reference="rr_wheel_link">
-        <mu1>1.0</mu1>
-        <mu2>0.3</mu2>
-        <fdir1>1 0 0</fdir1>
-    </gazebo>
+    <!-- ИСПРАВЛЕНО: Трение увеличено с 0.2 до 1.0 (иначе робот буксует как на льду) -->
+    <gazebo reference="fl_wheel_link">  <mu1>1.0</mu1>  <mu2>1.0</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
+    <gazebo reference="fr_wheel_link">  <mu1>1.0</mu1>  <mu2>1.0</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
+    <gazebo reference="rl_wheel_link">  <mu1>1.0</mu1>  <mu2>1.0</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
+    <gazebo reference="rr_wheel_link">  <mu1>1.0</mu1>  <mu2>1.0</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
+    <gazebo reference="drive_left_wheel_link">  <mu1>1.2</mu1>  <mu2>1.2</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
+    <gazebo reference="drive_right_wheel_link"> <mu1>1.2</mu1>  <mu2>1.2</mu2>  <fdir1>1 0 0</fdir1>  </gazebo>
 
 </robot>
