@@ -6,9 +6,11 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /RobotModel1
+        - /Map1
+        - /Map1/Topic1
+        - /Map1/Update Topic1
       Splitter Ratio: 0.5
-    Tree Height: 1067
+    Tree Height: 542
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -26,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -58,94 +60,18 @@ Visualization Manager:
       Name: Map
       Topic:
         Depth: 5
-        Durability Policy: Volatile
+        Durability Policy: Transient Local
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map_inflated
+        Value: /map
       Update Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map_inflated_updates
+        Value: /map_updates
       Use Timestamp: false
-      Value: true
-    - Class: rviz_default_plugins/TF
-      Enabled: true
-      Filter (blacklist): ""
-      Filter (whitelist): ""
-      Frame Timeout: 15
-      Frames:
-        All Enabled: true
-        asump0/base_footprint/lidar_sensor:
-          Value: true
-        balance_link:
-          Value: true
-        base_footprint:
-          Value: true
-        base_link:
-          Value: true
-        depth_camera_depth_optical_frame:
-          Value: true
-        depth_camera_link:
-          Value: true
-        depth_camera_rgb_optical_frame:
-          Value: true
-        fl_roller:
-          Value: true
-        fr_roller:
-          Value: true
-        imu_link:
-          Value: true
-        lidar_link:
-          Value: true
-        lidar_ray_link:
-          Value: true
-        map:
-          Value: true
-        odom:
-          Value: true
-        rl_roller:
-          Value: true
-        rr_roller:
-          Value: true
-        tracks_link:
-          Value: true
-      Marker Scale: 1
-      Name: TF
-      Show Arrows: true
-      Show Axes: true
-      Show Names: false
-      Tree:
-        map:
-          odom:
-            base_footprint:
-              base_link:
-                balance_link:
-                  {}
-                depth_camera_link:
-                  depth_camera_depth_optical_frame:
-                    {}
-                  depth_camera_rgb_optical_frame:
-                    {}
-                fl_roller:
-                  {}
-                fr_roller:
-                  {}
-                imu_link:
-                  {}
-                lidar_link:
-                  lidar_ray_link:
-                    asump0/base_footprint/lidar_sensor:
-                      {}
-                rl_roller:
-                  {}
-                rr_roller:
-                  {}
-                tracks_link:
-                  {}
-      Update Interval: 0
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz_default_plugins/Odometry
@@ -184,148 +110,308 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lidar_odometry
+        Value: /odometry/filtered
       Value: true
     - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz_default_plugins/LaserScan
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
+      Color: 255; 25; 0
       Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 0
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: LaserScan
-      Position Transformer: XYZ
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /scan
-      Use Fixed Frame: true
-      Use rainbow: true
+        Value: /zones/charger_pose
       Value: true
-    - Class: rviz_default_plugins/MarkerArray
+    - Alpha: 1
+      Class: rviz_default_plugins/Polygon
+      Color: 25; 255; 0
       Enabled: true
-      Name: MarkerArray
-      Namespaces:
-        zones: true
+      Name: Polygon
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /zones/markers
+        Value: /zones/charger_polygon
       Value: true
-    - Alpha: 1
-      Class: rviz_default_plugins/RobotModel
-      Collision Enabled: false
-      Description File: ""
-      Description Source: Topic
-      Description Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /robot_description
+    - Class: rviz_default_plugins/TF
       Enabled: true
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        asump0/base_footprint/back_camera_color:
+          Value: true
+        asump0/base_footprint/back_camera_depth:
+          Value: true
+        asump0/base_footprint/back_left_us_sensor:
+          Value: true
+        asump0/base_footprint/back_right_us_sensor:
+          Value: true
+        asump0/base_footprint/cam_left_sensor:
+          Value: true
+        asump0/base_footprint/cam_right_sensor:
+          Value: true
+        asump0/base_footprint/face_camera_color:
+          Value: true
+        asump0/base_footprint/face_camera_depth:
+          Value: true
+        asump0/base_footprint/face_left_us_sensor:
+          Value: true
+        asump0/base_footprint/face_right_us_sensor:
+          Value: true
+        asump0/base_footprint/imu:
+          Value: true
+        asump0/base_footprint/left1_us_sensor:
+          Value: true
+        asump0/base_footprint/left2_us_sensor:
+          Value: true
         asump0/base_footprint/lidar_sensor:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        balance_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+          Value: true
+        asump0/base_footprint/right1_us_sensor:
+          Value: true
+        asump0/base_footprint/right2_us_sensor:
+          Value: true
+        back_camera_bottom_screw_frame:
+          Value: true
+        back_camera_color_frame:
+          Value: true
+        back_camera_color_optical_frame:
+          Value: true
+        back_camera_depth_frame:
+          Value: true
+        back_camera_depth_optical_frame:
+          Value: true
+        back_camera_infra1_frame:
+          Value: true
+        back_camera_infra1_optical_frame:
+          Value: true
+        back_camera_infra2_frame:
+          Value: true
+        back_camera_infra2_optical_frame:
+          Value: true
+        back_camera_link:
+          Value: true
+        back_left_us_mount_link:
+          Value: true
+        back_left_us_sensor_link:
+          Value: true
+        back_right_us_mount_link:
+          Value: true
+        back_right_us_sensor_link:
+          Value: true
+        back_sensor_panel:
+          Value: true
         base_footprint:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+          Value: true
         base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
           Value: true
-        depth_camera_depth_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        depth_camera_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        body_link:
           Value: true
-        depth_camera_rgb_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        fl_roller:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        cam_left_link:
           Value: true
-        fr_roller:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        cam_right_link:
+          Value: true
+        drive_left_wheel_link:
+          Value: true
+        drive_right_wheel_link:
+          Value: true
+        face_camera_bottom_screw_frame:
+          Value: true
+        face_camera_color_frame:
+          Value: true
+        face_camera_color_optical_frame:
+          Value: true
+        face_camera_depth_frame:
+          Value: true
+        face_camera_depth_optical_frame:
+          Value: true
+        face_camera_infra1_frame:
+          Value: true
+        face_camera_infra1_optical_frame:
+          Value: true
+        face_camera_infra2_frame:
+          Value: true
+        face_camera_infra2_optical_frame:
+          Value: true
+        face_camera_link:
+          Value: true
+        face_left_us_sensor_link:
+          Value: true
+        face_right_us_sensor_link:
+          Value: true
+        face_sensor_panel:
+          Value: true
+        fl_wheel_link:
+          Value: true
+        fr_wheel_link:
           Value: true
         imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
           Value: true
-        lidar_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        laser:
           Value: true
-        lidar_ray_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        rl_roller:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        left1_us_mount_link:
           Value: true
-        rr_roller:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
+        left1_us_sensor_link:
           Value: true
-        tracks_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-      Mass Properties:
-        Inertia: false
-        Mass: false
-      Name: RobotModel
-      TF Prefix: ""
+        left2_us_mount_link:
+          Value: true
+        left2_us_sensor_link:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
+        right1_us_mount_link:
+          Value: true
+        right1_us_sensor_link:
+          Value: true
+        right2_us_mount_link:
+          Value: true
+        right2_us_sensor_link:
+          Value: true
+        rl_wheel_link:
+          Value: true
+        rr_wheel_link:
+          Value: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+      Tree:
+        map:
+          odom:
+            base_footprint:
+              base_link:
+                body_link:
+                  back_left_us_mount_link:
+                    back_left_us_sensor_link:
+                      asump0/base_footprint/back_left_us_sensor:
+                        {}
+                  back_right_us_mount_link:
+                    back_right_us_sensor_link:
+                      asump0/base_footprint/back_right_us_sensor:
+                        {}
+                  back_sensor_panel:
+                    back_camera_bottom_screw_frame:
+                      back_camera_link:
+                        back_camera_color_frame:
+                          asump0/base_footprint/back_camera_color:
+                            {}
+                          back_camera_color_optical_frame:
+                            {}
+                        back_camera_depth_frame:
+                          asump0/base_footprint/back_camera_depth:
+                            {}
+                          back_camera_depth_optical_frame:
+                            {}
+                        back_camera_infra1_frame:
+                          back_camera_infra1_optical_frame:
+                            {}
+                        back_camera_infra2_frame:
+                          back_camera_infra2_optical_frame:
+                            {}
+                  cam_left_link:
+                    asump0/base_footprint/cam_left_sensor:
+                      {}
+                  cam_right_link:
+                    asump0/base_footprint/cam_right_sensor:
+                      {}
+                  face_sensor_panel:
+                    face_camera_bottom_screw_frame:
+                      face_camera_link:
+                        face_camera_color_frame:
+                          asump0/base_footprint/face_camera_color:
+                            {}
+                          face_camera_color_optical_frame:
+                            {}
+                        face_camera_depth_frame:
+                          asump0/base_footprint/face_camera_depth:
+                            {}
+                          face_camera_depth_optical_frame:
+                            {}
+                        face_camera_infra1_frame:
+                          face_camera_infra1_optical_frame:
+                            {}
+                        face_camera_infra2_frame:
+                          face_camera_infra2_optical_frame:
+                            {}
+                    face_left_us_sensor_link:
+                      asump0/base_footprint/face_left_us_sensor:
+                        {}
+                    face_right_us_sensor_link:
+                      asump0/base_footprint/face_right_us_sensor:
+                        {}
+                  imu_link:
+                    asump0/base_footprint/imu:
+                      {}
+                  laser:
+                    asump0/base_footprint/lidar_sensor:
+                      {}
+                  left1_us_mount_link:
+                    left1_us_sensor_link:
+                      asump0/base_footprint/left1_us_sensor:
+                        {}
+                  left2_us_mount_link:
+                    left2_us_sensor_link:
+                      asump0/base_footprint/left2_us_sensor:
+                        {}
+                  right1_us_mount_link:
+                    right1_us_sensor_link:
+                      asump0/base_footprint/right1_us_sensor:
+                        {}
+                  right2_us_mount_link:
+                    right2_us_sensor_link:
+                      asump0/base_footprint/right2_us_sensor:
+                        {}
+                drive_left_wheel_link:
+                  {}
+                drive_right_wheel_link:
+                  {}
+                fl_wheel_link:
+                  {}
+                fr_wheel_link:
+                  {}
+                rl_wheel_link:
+                  {}
+                rr_wheel_link:
+                  {}
       Update Interval: 0
       Value: true
-      Visual Enabled: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz_default_plugins/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /particles
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -372,7 +458,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 16.585037231445312
+      Distance: 23.09577751159668
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -387,18 +473,18 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.2003978490829468
+      Pitch: 1.2603976726531982
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.1853976249694824
+      Yaw: 0.8253980875015259
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1371
+  Height: 846
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000156000004b9fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005d00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003f000004b9000000cc00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000004b9fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003f000004b9000000a900fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004df0000003efc0100000002fb0000000800540069006d00650100000000000004df0000026f00fffffffb0000000800540069006d006501000000000000045000000000000000000000026e000004b900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000156000002acfc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005d00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003f000002ac000000cc00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002acfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003f000002ac000000a900fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004b00000003efc0100000002fb0000000800540069006d00650100000000000004b00000026f00fffffffb0000000800540069006d006501000000000000045000000000000000000000023f000002ac00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -407,6 +493,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1247
-  X: 1313
-  Y: 32
+  Width: 1200
+  X: 720
+  Y: 110

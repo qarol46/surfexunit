@@ -54,7 +54,7 @@ amcl:
     robot_model_type: "nav2_amcl::DifferentialMotionModel"
     
     scan_topic: /scan
-    map_topic: /map_base
+    map_topic: /map    # /map отдаёт nav2_map_server (в amcl_localization.launch.py)
     
     set_initial_pose: false
     initial_pose:

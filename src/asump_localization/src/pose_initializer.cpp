@@ -33,6 +33,7 @@ public:
         this->declare_parameter("map_topic", "/map");
         this->declare_parameter("scan_topic", "/scan");
         this->declare_parameter("charger_pose_topic", "/zones/charger_pose");
+        this->declare_parameter("stairs_pose_topic", "/zones/stairs_pose");
         this->declare_parameter("output_pose_topic", "/initialpose");
         this->declare_parameter("particles_topic", "/particles");
 
@@ -47,9 +48,15 @@ public:
         this->declare_parameter("beam_step", 3);
         this->declare_parameter("initialization_timeout_sec", 10.0);
 
+        // Радиус локальной области инициализации (вокруг ориентира:
+        // зарядной станции, лестницы или явно заданной позы), метры
+        this->declare_parameter("search_radius", 3.0);
+
         map_topic_ = this->get_parameter("map_topic").as_string();
         scan_topic_ = this->get_parameter("scan_topic").as_string();
         charger_pose_topic_ = this->get_parameter("charger_pose_topic").as_string();
+        stairs_pose_topic_ = this->get_parameter("stairs_pose_topic").as_string();
+        search_radius_ = this->get_parameter("search_radius").as_double();
         output_pose_topic_ = this->get_parameter("output_pose_topic").as_string();
         particles_topic_ = this->get_parameter("particles_topic").as_string();
 
@@ -79,6 +86,10 @@ public:
         charger_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             charger_pose_topic_, 10,
             std::bind(&ParticleFilterInitializer::charger_pose_callback, this, std::placeholders::_1));
+
+        stairs_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            stairs_pose_topic_, 10,
+            std::bind(&ParticleFilterInitializer::stairs_pose_callback, this, std::placeholders::_1));
 
         initial_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
             output_pose_topic_, rclcpp::QoS(1).transient_local());
@@ -133,6 +144,13 @@ private:
         has_charger_pose_ = true;
     }
 
+    void stairs_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stairs_pose_ = *msg;
+        has_stairs_pose_ = true;
+    }
+
     void initialize_pose_callback(
         const std::shared_ptr<rmw_request_id_t> request_header,
         const std::shared_ptr<asump_localization::srv::InitializePose::Request> request,
@@ -168,38 +186,49 @@ private:
         double seed_x = 0, seed_y = 0, seed_theta = 0;
         bool has_seed = false;
 
-        if (request->initial_guess.header.frame_id != "") {
+        // frame_id в initial_guess выбирает область инициализации:
+        //   "charger" -> круг search_radius_ вокруг зарядной станции
+        //   "stairs"  -> круг search_radius_ вокруг лестницы
+        //   прочее непустое -> явная поза в системе map (круг вокруг неё)
+        //   пусто           -> глобальный поиск по всей карте
+        const std::string& area = request->initial_guess.header.frame_id;
+
+        auto yaw_of = [](const geometry_msgs::msg::Pose& pose) {
+            Eigen::Quaterniond q(
+                pose.orientation.w, pose.orientation.x,
+                pose.orientation.y, pose.orientation.z);
+            Eigen::Vector3d euler = q.toRotationMatrix().eulerAngles(2, 1, 0);
+            return euler[0];
+        };
+
+        if (area == "charger" || area == "stairs") {
+            const bool want_charger = (area == "charger");
+            if (want_charger && !has_charger_pose_) {
+                response->success = false;
+                response->message = "Charger pose not available yet.";
+                return;
+            }
+            if (!want_charger && !has_stairs_pose_) {
+                response->success = false;
+                response->message = "Stairs pose not available yet.";
+                return;
+            }
+            const auto& landmark = want_charger ? charger_pose_ : stairs_pose_;
+            seed_x = landmark.pose.position.x;
+            seed_y = landmark.pose.position.y;
+            seed_theta = yaw_of(landmark.pose);
+            has_seed = true;
+            RCLCPP_INFO(get_logger(), "Using %s pose as seed: x=%.2f, y=%.2f, theta=%.2f",
+                        area.c_str(), seed_x, seed_y, seed_theta);
+        } else if (!area.empty()) {
             seed_x = request->initial_guess.pose.pose.position.x;
             seed_y = request->initial_guess.pose.pose.position.y;
-            
-            Eigen::Quaterniond q(
-                request->initial_guess.pose.pose.orientation.w,
-                request->initial_guess.pose.pose.orientation.x,
-                request->initial_guess.pose.pose.orientation.y,
-                request->initial_guess.pose.pose.orientation.z);
-            
-            Eigen::Vector3d euler = q.toRotationMatrix().eulerAngles(2, 1, 0);
-            seed_theta = euler[0];
-            
+            seed_theta = yaw_of(request->initial_guess.pose.pose);
             has_seed = true;
             RCLCPP_INFO(get_logger(), "Using provided initial_guess as seed: x=%.2f, y=%.2f, theta=%.2f",
                         seed_x, seed_y, seed_theta);
-        } else if (has_charger_pose_) {
-            seed_x = charger_pose_.pose.position.x;
-            seed_y = charger_pose_.pose.position.y;
-            
-            Eigen::Quaterniond q(
-                charger_pose_.pose.orientation.w,
-                charger_pose_.pose.orientation.x,
-                charger_pose_.pose.orientation.y,
-                charger_pose_.pose.orientation.z);
-            
-            Eigen::Vector3d euler = q.toRotationMatrix().eulerAngles(2, 1, 0);
-            seed_theta = euler[0];
-            
-            has_seed = true;
-            RCLCPP_INFO(get_logger(), "Using charger_pose as seed: x=%.2f, y=%.2f, theta=%.2f",
-                        seed_x, seed_y, seed_theta);
+        } else {
+            RCLCPP_INFO(get_logger(), "No area specified, global search across whole map.");
         }
 
         initializeParticles(has_seed, seed_x, seed_y, seed_theta);
@@ -288,41 +317,43 @@ private:
         particles_.clear();
         particles_.reserve(num_particles_);
 
-        double search_min_x, search_max_x, search_min_y, search_max_y;
+        // Локальная область поиска: круг search_radius_ вокруг seed-позы.
+        // Запоминаем её — случайные частицы при ресемплинге берутся только
+        // из неё, иначе фильтр может сойтись в похожем месте карты.
+        area_active_ = has_seed;
+        area_x_ = seed_x;
+        area_y_ = seed_y;
 
-        if (has_seed) {
-            // Initialize around seed pose with some noise
-            search_min_x = seed_x - 2.0;
-            search_max_x = seed_x + 2.0;
-            search_min_y = seed_y - 2.0;
-            search_max_y = seed_y + 2.0;
-            RCLCPP_INFO(get_logger(), "Initializing particles around seed pose.");
-        } else {
-            // Initialize across whole map
-            search_min_x = map_info_.origin.position.x;
-            search_max_x = map_info_.origin.position.x + map_info_.width * map_info_.resolution;
-            search_min_y = map_info_.origin.position.y;
-            search_max_y = map_info_.origin.position.y + map_info_.height * map_info_.resolution;
-            RCLCPP_INFO(get_logger(), "Initializing particles across whole map.");
-        }
+        double map_min_x = map_info_.origin.position.x;
+        double map_max_x = map_info_.origin.position.x + map_info_.width * map_info_.resolution;
+        double map_min_y = map_info_.origin.position.y;
+        double map_max_y = map_info_.origin.position.y + map_info_.height * map_info_.resolution;
 
-        std::uniform_real_distribution<> dx(search_min_x, search_max_x);
-        std::uniform_real_distribution<> dy(search_min_y, search_max_y);
+        std::uniform_real_distribution<> dmx(map_min_x, map_max_x);
+        std::uniform_real_distribution<> dmy(map_min_y, map_max_y);
+        std::uniform_real_distribution<> d01(0.0, 1.0);
         std::uniform_real_distribution<> dt(-M_PI, M_PI);
+        std::normal_distribution<> dtheta(0.0, 0.3);
 
         int placed = 0;
         int attempts = 0;
         const int max_attempts = num_particles_ * 100;
 
         while (placed < num_particles_ && attempts < max_attempts) {
-            double x = dx(gen_);
-            double y = dy(gen_);
+            double x, y;
+            if (area_active_) {
+                // Равномерно по площади круга (sqrt для радиуса)
+                double r = search_radius_ * std::sqrt(d01(gen_));
+                double a = 2.0 * M_PI * d01(gen_);
+                x = area_x_ + r * std::cos(a);
+                y = area_y_ + r * std::sin(a);
+            } else {
+                x = dmx(gen_);
+                y = dmy(gen_);
+            }
 
             if (isFree(x, y)) {
-                double theta = has_seed ? 
-                    seed_theta + std::normal_distribution<>(0.0, 0.3)(gen_) : 
-                    dt(gen_);
-                
+                double theta = area_active_ ? seed_theta + dtheta(gen_) : dt(gen_);
                 particles_.push_back({x, y, theta, 1.0 / num_particles_});
                 placed++;
             }
@@ -330,7 +361,14 @@ private:
         }
 
         iteration_count_ = 0;
-        RCLCPP_INFO(get_logger(), "Placed %d particles (%d attempts)", placed, attempts);
+        if (area_active_) {
+            RCLCPP_INFO(get_logger(),
+                "Placed %d particles in radius %.1f m around (%.2f, %.2f) (%d attempts)",
+                placed, search_radius_, area_x_, area_y_, attempts);
+        } else {
+            RCLCPP_INFO(get_logger(), "Placed %d particles across whole map (%d attempts)",
+                placed, attempts);
+        }
 
         if (placed == 0) {
             RCLCPP_ERROR(get_logger(), "Failed to place any particles!");
@@ -479,25 +517,37 @@ private:
 
     void addRandom(std::vector<Particle>& out)
     {
-        double search_min_x = map_info_.origin.position.x;
-        double search_max_x = map_info_.origin.position.x + map_info_.width * map_info_.resolution;
-        double search_min_y = map_info_.origin.position.y;
-        double search_max_y = map_info_.origin.position.y + map_info_.height * map_info_.resolution;
+        // Случайные частицы добавляются только внутри активной области
+        // поиска (круг search_radius_ вокруг seed-позы). Раньше они брались
+        // со всей карты и на симметричном складе выигрывали в ложном месте.
+        double map_min_x = map_info_.origin.position.x;
+        double map_max_x = map_info_.origin.position.x + map_info_.width * map_info_.resolution;
+        double map_min_y = map_info_.origin.position.y;
+        double map_max_y = map_info_.origin.position.y + map_info_.height * map_info_.resolution;
 
-        std::uniform_real_distribution<> dx(search_min_x, search_max_x);
-        std::uniform_real_distribution<> dy(search_min_y, search_max_y);
+        std::uniform_real_distribution<> dmx(map_min_x, map_max_x);
+        std::uniform_real_distribution<> dmy(map_min_y, map_max_y);
+        std::uniform_real_distribution<> d01(0.0, 1.0);
         std::uniform_real_distribution<> dt(-M_PI, M_PI);
 
+        double x = 0.0, y = 0.0;
         for (int t = 0; t < 50; ++t) {
-            double x = dx(gen_);
-            double y = dy(gen_);
+            if (area_active_) {
+                double r = search_radius_ * std::sqrt(d01(gen_));
+                double a = 2.0 * M_PI * d01(gen_);
+                x = area_x_ + r * std::cos(a);
+                y = area_y_ + r * std::sin(a);
+            } else {
+                x = dmx(gen_);
+                y = dmy(gen_);
+            }
 
             if (isFree(x, y)) {
                 out.push_back({x, y, dt(gen_), 1.0 / num_particles_});
                 return;
             }
         }
-        out.push_back({dx(gen_), dy(gen_), dt(gen_), 1.0 / num_particles_});
+        out.push_back({x, y, dt(gen_), 1.0 / num_particles_});
     }
 
     void computeFinalPose(double& x, double& y, double& theta, double& var_x, double& var_y, double& var_theta)
@@ -548,6 +598,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr charger_pose_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr stairs_pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particles_pub_;
     rclcpp::Service<asump_localization::srv::InitializePose>::SharedPtr init_pose_srv_;
@@ -560,6 +611,13 @@ private:
     sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
     geometry_msgs::msg::PoseStamped charger_pose_;
     bool has_charger_pose_;
+    geometry_msgs::msg::PoseStamped stairs_pose_;
+    bool has_stairs_pose_ = false;
+
+    // Активная локальная область поиска (круг вокруг seed-позы)
+    bool area_active_ = false;
+    double area_x_ = 0.0;
+    double area_y_ = 0.0;
 
     std::vector<Particle> particles_;
     int iteration_count_ = 0;
@@ -572,6 +630,8 @@ private:
     std::string map_topic_;
     std::string scan_topic_;
     std::string charger_pose_topic_;
+    std::string stairs_pose_topic_;
+    double search_radius_;
     std::string output_pose_topic_;
     std::string particles_topic_;
 

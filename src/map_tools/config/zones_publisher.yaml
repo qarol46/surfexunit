@@ -7,8 +7,8 @@ zones_publisher:
       enabled: true
       name: "charging_station_1"
 
-      x: -2.51
-      y: -2.5
+      x: -2.5
+      y: 0.0
       yaw: 0.0
 
       radius: 2.5

@@ -25,7 +25,9 @@ build/ install/ log/    # артефакты colcon (в .gitignore, не ред�
   - `rgbd_mapper_node` (`src/rgbd_mapper.cpp`) — 3D-картирование по RGB-D (PCL, сохраняет `rgbd_map.pcd`).
   - `pose_initializer_node` (`src/pose_initializer.cpp`) — инициализация позы на карте фильтром частиц (particle filter + scan matching; OpenCV, yaml-cpp, Eigen). Публикует `/initialpose`, сервис `initialize_pose`.
   - Собственные сервисы (`srv/`): `InitializePose.srv`, `GetPathToPoint.srv`, `GetWaypoint.srv` — генерируются через `rosidl_generate_interfaces`, зависят от `geometry_msgs`/`nav_msgs`. Другие пакеты используют их через `<depend>asump_localization</depend>`.
-  - `config/`: `slam_localization_params.yaml`, `slam_mapper_params.yaml` (slam_toolbox), `amcl.yaml` (экспериментальный переход на AMCL), `ekf.yaml`, rviz-конфиги.
+  - `config/`: `slam_localization_params.yaml`, `slam_mapper_params.yaml` (slam_toolbox), `amcl.yaml` (AMCL для `amcl_localization.launch.py`, карта из `/map` nav2_map_server), `ekf.yaml`, `ekf_odom_fusion.yaml` (EKF-фьюз icp_odometry+rgbd_odometry+IMU), `rtabmap_params.yaml` (2 камеры, `rgbd_cameras: 0` — потоки склеивает `rgbdx_sync`, т.к. бинарный rtabmap_ros собран без RTABMAP_SYNC_MULTI_RGBD), `rtabmap_params_1cam.yaml`, rviz-конфиги.
+  - RTAB-Map стек: `launch/rtabmap_slam_multicam.launch.py` — построение карты (rgbd_sync → rgbdx_sync → rtabmap).
+  - AMCL-стек локализации: `launch/amcl_localization.launch.py` — локализация на карте в навигации: nav2_map_server (`/map`) + icp_odometry (лидар) + rgbd_odometry (камера) + EKF (`/odometry/filtered`, TF `odom→base_footprint`) + AMCL (поправка TF `map→odom`, одометрию берёт из TF EKF, стартовую позу — из `/initialpose`) + pose_initializer (сервис `/initialize_pose` → `/initialpose`). Не запускать вместе с `lidar_odometry_node` — конфликт TF `odom→base_footprint`.
   - `maps/`: готовые карты (`warehouse_map`, `new_warehouse_map` — pgm+yaml, `rgbd_map.pcd`).
 - **`asump_nav`** — навигация. Ноды:
   - `path_follower_node` (+ shared-библиотека `path_follower_core`, заголовки в `include/asump_nav/`) — чистое следование по пути (pure pursuit со сглаживанием скоростей), параметры в `config/path_follower.yaml`, путь запрашивает через сервис `get_path_to_point`.
@@ -69,6 +71,7 @@ ros2 launch asump_sim launch_sim.launch.py                 # симуляция 
 ros2 launch asump_bringup mapping_bringup.launch.py    # режим картирования (slam_toolbox mapper)
 ros2 launch map_tools map_tools.launch.py              # только карта/планировщик
 ros2 launch asump_localization localization.launch.py map_yaml_file:=/abs/path/map.yaml
+ros2 launch asump_localization amcl_localization.launch.py   # локализация AMCL + EKF (icp/rgbd одометрия)
 ros2 run asump_web_teleop web_teleop_node              # веб-телеуправление, http://<ip>:5000
 ros2 run asump_control velocity_forward_node           # UART-мост к ESP32 (нужен /dev/ttyUSB0)
 ros2 run ultrasonic_bridge ultrasonic_node
