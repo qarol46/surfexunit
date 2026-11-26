@@ -185,12 +185,12 @@
       </visual>
       
       <!-- ИСПРАВЛЕНО: rpy="1.570796" (ровно 90 градусов), радиус 0.1 как в плагине -->
-      <collision>
+      <!--collision>
         <origin xyz="0 0 0" rpy="1.570796 0 0"/>
         <geometry>
           <cylinder radius="0.1" length="0.04"/>
         </geometry>
-      </collision>
+      </collision-->
     </link>
 
     <joint name="${prefix}_wheel_joint" type="continuous">
@@ -218,7 +218,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="1.570796 0 0"/>
       <geometry>
-        <cylinder radius="0.1" length="0.05"/>
+        <cylinder radius="0.125" length="0.05"/>
       </geometry>
     </collision>
     <visual>
@@ -248,7 +248,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="1.570796 0 0"/>
       <geometry>
-        <cylinder radius="0.1" length="0.05"/>
+        <cylinder radius="0.125" length="0.05"/>
       </geometry>
     </collision>
     <visual>

@@ -47,7 +47,7 @@ class ZonesPublisher(Node):
 
         self.declare_parameter('stairs.enabled', True)
         self.declare_parameter('stairs.name', 'stairs')
-        self.declare_parameter('stairs.floor1.x', -4.5)
+        self.declare_parameter('stairs.floor1.x', -2.5)
         self.declare_parameter('stairs.floor1.y', 6.0)
         self.declare_parameter('stairs.floor1.yaw', 0.0)
         self.declare_parameter('stairs.floor2.x', 0.0)

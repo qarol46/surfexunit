@@ -21,6 +21,7 @@ find_package(asump_localization REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(message_filters REQUIRED)
 
 include_directories(include)
 
@@ -38,6 +39,17 @@ ament_target_dependencies(path_follower_core
   tf2_ros
   tf2_geometry_msgs
   asump_localization
+)
+
+add_executable(stair_climber_node src/stairs_climbing_node.cpp)
+ament_target_dependencies(stair_climber_node
+  rclcpp 
+  sensor_msgs 
+  geometry_msgs 
+  cv_bridge 
+  message_filters 
+  tf2 
+  OpenCV
 )
 
 # Исполняемый файл ноды
@@ -129,6 +141,11 @@ target_link_libraries(dock_controller_node ${OpenCV_LIBS})
 
 install(TARGETS
   dock_controller_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  stair_climber_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
